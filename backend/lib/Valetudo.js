@@ -1,3 +1,4 @@
+const capabilities = require("./core/capabilities");
 const Configuration = require("./Configuration");
 const env = require("./res/env");
 const fs = require("fs");
@@ -46,6 +47,11 @@ class Valetudo {
             Logger.error("Error while initializing robot implementation. Shutting down ", e);
 
             return process.exit(1);
+        }
+
+        if (this.config.get("debug").debugToolsEnabled === true) {
+            this.robot.registerCapability(new capabilities.DebugCapability({robot: this.robot}));
+            Logger.warn("Debug tools are enabled. Do not expose this instance to untrusted networks.");
         }
 
         this.valetudoEventStore.setEventHandlerFactory(new ValetudoEventHandlerFactory({robot: this.robot}));
