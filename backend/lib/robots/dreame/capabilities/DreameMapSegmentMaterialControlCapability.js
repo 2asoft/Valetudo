@@ -1,3 +1,4 @@
+const MapLayer = require("../../../entities/map/MapLayer");
 const MapSegmentMaterialControlCapability = require("../../../core/capabilities/MapSegmentMaterialControlCapability");
 const RobotFirmwareError = require("../../../core/RobotFirmwareError");
 
@@ -36,87 +37,124 @@ class DreameMapSegmentMaterialControlCapability extends MapSegmentMaterialContro
     /**
      * @param {import("../../../entities/core/ValetudoMapSegment")} segment
      * @param {import("../../../core/capabilities/MapSegmentMaterialControlCapability").MapLayerMaterial} material
+     * @param {string} [mapId]
      * @returns {Promise<void>}
      */
-    async setMaterial(segment, material) {
-        if (this.robot.state.map.metaData.vendorMapId === undefined) {
-            throw new Error("Can't set segment material because the map was not parsed yet");
-        }
-
+    async setMaterial(segment, material, mapId) {
         if (!this.supportedMaterials.includes(material)) {
             throw new Error(`Unsupported material '${material}'.`);
         }
 
-        let mappedMaterial;
-        let direction;
-        switch (material) {
-            case DreameMapSegmentMaterialControlCapability.MATERIAL.GENERIC:
-                mappedMaterial = 0;
-                break;
-            case DreameMapSegmentMaterialControlCapability.MATERIAL.WOOD:
-                mappedMaterial = 1;
-                break;
-            case DreameMapSegmentMaterialControlCapability.MATERIAL.WOOD_HORIZONTAL:
-                mappedMaterial = 1;
-                direction = 0;
-                break;
-            case DreameMapSegmentMaterialControlCapability.MATERIAL.WOOD_VERTICAL:
-                mappedMaterial = 1;
-                direction = 90;
-                break;
-            case DreameMapSegmentMaterialControlCapability.MATERIAL.TILE:
-                mappedMaterial = 2;
-                break;
-            case DreameMapSegmentMaterialControlCapability.MATERIAL.CARPET:
-                mappedMaterial = 7;
-                break;
-            case DreameMapSegmentMaterialControlCapability.MATERIAL.CARPET_LOW:
-                mappedMaterial = 6;
-                break;
-            case DreameMapSegmentMaterialControlCapability.MATERIAL.CARPET_HIGH:
-                mappedMaterial = 5;
-                break;
-            default:
-                throw new Error(`Unsupported material '${material}'.`);
+        const edit = await this.robot.prepareDreameMapEdit({}, mapId);
+        const materialPayload = this.buildMaterialPayloadForMap(segment.id, material, edit.map);
 
-        }
+        edit.payload.nsm = materialPayload;
 
-        const res = await this.robot.sendCommand("action",
-            {
-                did: this.robot.deviceId,
-                siid: this.miot_actions.map_edit.siid,
-                aiid: this.miot_actions.map_edit.aiid,
-                in: [
-                    {
-                        piid: this.miot_properties.mapDetails.piid,
-                        value: JSON.stringify({
-                            nsm: {
-                                [segment.id]: {
-                                    material: mappedMaterial,
-                                    direction: direction
-                                }
-                            },
-                            mapid: this.robot.state.map.metaData.vendorMapId
-                        })
-                    }
-                ]
-            },
+        const resultCode = await this.robot.sendDreameMapEditAction(
+            edit.payload,
+            this.miot_actions,
+            this.miot_properties,
             {timeout: 5000}
         );
 
-        if (
-            res && res.siid === this.miot_actions.map_edit.siid &&
-            res.aiid === this.miot_actions.map_edit.aiid &&
-            Array.isArray(res.out) && res.out.length === 1 &&
-            res.out[0].piid === this.miot_properties.actionResult.piid
-        ) {
-            switch (res.out[0].value) {
-                case 0:
-                    this.robot.pollMap();
-                    return;
-                default:
-                    throw new RobotFirmwareError("Got error " + res.out[0].value + " while setting segment material.");
+        switch (resultCode) {
+            case 0:
+                this.robot.pollMap();
+                return;
+            default:
+                throw new RobotFirmwareError("Got error " + resultCode + " while setting segment material.");
+        }
+    }
+
+    /**
+     * @private
+     * @param {string} targetSegmentId
+     * @param {import("../../../core/capabilities/MapSegmentMaterialControlCapability").MapLayerMaterial} targetMaterial
+     * @param {import("../../../entities/map/ValetudoMap")} targetMap
+     * @returns {object}
+     */
+    buildMaterialPayloadForMap(targetSegmentId, targetMaterial, targetMap) {
+        const segmentLayers = targetMap.layers.filter(layer => {
+            return layer.type === MapLayer.TYPE.SEGMENT;
+        });
+        const payload = {};
+
+        segmentLayers.forEach(layer => {
+            const segmentId = layer.metaData.segmentId.toString();
+            const material = segmentId === targetSegmentId.toString() ?
+                this.mapValetudoMaterialToDreame(targetMaterial, layer.metaData) :
+                this.mapCurrentSegmentMaterialToDreame(layer.metaData);
+
+            payload[segmentId] = material;
+        });
+
+        if (payload[targetSegmentId.toString()] === undefined) {
+            throw new Error(`Unknown segment '${targetSegmentId}'.`);
+        }
+
+        return payload;
+    }
+
+    /**
+     * @private
+     * @param {object} segmentMetaData
+     * @returns {{material: number, direction?: number}}
+     */
+    mapCurrentSegmentMaterialToDreame(segmentMetaData) {
+        if (segmentMetaData.dreameMaterial !== undefined) {
+            const material = {
+                material: segmentMetaData.dreameMaterial
+            };
+
+            if (segmentMetaData.dreameMaterialDirection !== undefined) {
+                material.direction = segmentMetaData.dreameMaterialDirection;
             }
+
+            return material;
+        }
+
+        return this.mapValetudoMaterialToDreame(segmentMetaData.material, segmentMetaData);
+    }
+
+    /**
+     * @private
+     * @param {import("../../../core/capabilities/MapSegmentMaterialControlCapability").MapLayerMaterial} material
+     * @param {object} [segmentMetaData]
+     * @returns {{material: number, direction?: number}}
+     */
+    mapValetudoMaterialToDreame(material, segmentMetaData) {
+        switch (material) {
+            case DreameMapSegmentMaterialControlCapability.MATERIAL.GENERIC:
+                return {material: 0};
+            case DreameMapSegmentMaterialControlCapability.MATERIAL.WOOD:
+                if (segmentMetaData?.dreameMaterialDirection !== undefined) {
+                    return {
+                        material: 1,
+                        direction: segmentMetaData.dreameMaterialDirection
+                    };
+                }
+
+                return {material: 1};
+            case DreameMapSegmentMaterialControlCapability.MATERIAL.WOOD_HORIZONTAL:
+                return {
+                    material: 1,
+                    direction: 0
+                };
+            case DreameMapSegmentMaterialControlCapability.MATERIAL.WOOD_VERTICAL:
+                return {
+                    material: 1,
+                    direction: 90
+                };
+            case DreameMapSegmentMaterialControlCapability.MATERIAL.TILE:
+                return {material: 2};
+            case DreameMapSegmentMaterialControlCapability.MATERIAL.CARPET:
+                return {material: 7};
+            case DreameMapSegmentMaterialControlCapability.MATERIAL.CARPET_LOW:
+                return {material: 6};
+            case DreameMapSegmentMaterialControlCapability.MATERIAL.CARPET_HIGH:
+                return {material: 5};
+            default:
+                return {material: 0};
         }
     }
 

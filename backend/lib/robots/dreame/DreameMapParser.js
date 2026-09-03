@@ -38,7 +38,10 @@ class DreameMapParser {
         const layers = [];
         const entities = [];
         const metaData = {
-            vendorMapId: parsedHeader.id
+            vendorMapId: parsedHeader.id,
+            dreameMapId: parsedHeader.id,
+            dreameFrameId: parsedHeader.frame_id,
+            dreameMapSource: mapType
         };
 
         if (parsedHeader.robot_position.valid === true) {
@@ -76,6 +79,9 @@ class DreameMapParser {
             const imageData = buf.subarray(HEADER_SIZE, HEADER_SIZE + parsedHeader.width * parsedHeader.height);
             const activeSegmentIds = [];
             const segmentNames = {};
+            const segmentCleanOrder = {};
+            const segmentCleanSets = {};
+            const hiddenSegmentIds = [];
             const segmentMaterials = {};
             let additionalData = {};
 
@@ -91,22 +97,53 @@ class DreameMapParser {
                 });
             }
 
+            if (Array.isArray(additionalData.delsr)) {
+                hiddenSegmentIds.push(...additionalData.delsr.map(segmentId => segmentId.toString()));
+            }
+
+            if (additionalData.cleanset !== undefined) {
+                try {
+                    const cleanSet = typeof additionalData.cleanset === "string" ? JSON.parse(additionalData.cleanset) : additionalData.cleanset;
+
+                    if (cleanSet !== null && typeof cleanSet === "object" && !Array.isArray(cleanSet)) {
+                        Object.keys(cleanSet).forEach(segmentId => {
+                            if (Array.isArray(cleanSet[segmentId])) {
+                                segmentCleanSets[segmentId] = cleanSet[segmentId];
+                            }
+                        });
+                    }
+                } catch (e) {
+                    Logger.warn("Error while parsing Dreame segment cleanset", e);
+                }
+            }
+
             if (additionalData.seg_inf) {
                 Object.keys(additionalData.seg_inf).forEach(segmentId => {
                     if (additionalData.seg_inf[segmentId].name) {
                         segmentNames[segmentId] = Buffer.from(additionalData.seg_inf[segmentId].name, "base64").toString("utf8");
                     }
 
+                    if (additionalData.cleanareaorder !== undefined && Array.isArray(additionalData.cleanareaorder)) {
+                        const foundEntry = additionalData.cleanareaorder.find(entry => Object.keys(entry).includes(segmentId));
+
+                        if (foundEntry !== undefined) {
+                            segmentCleanOrder[segmentId] = foundEntry[segmentId];
+                        }
+                    }
+
                     if (additionalData.seg_inf[segmentId].material !== undefined) {
+                        const rawMaterial = additionalData.seg_inf[segmentId].material;
+                        const rawDirection = additionalData.seg_inf[segmentId].direction;
                         let material;
-                        switch (additionalData.seg_inf[segmentId].material) {
+
+                        switch (rawMaterial) {
                             case 0:
                                 material = mapEntities.MapLayer.MATERIAL.GENERIC;
                                 break;
                             case 1:
                                 material = mapEntities.MapLayer.MATERIAL.WOOD_HORIZONTAL;
 
-                                if (additionalData.seg_inf[segmentId].direction === 90) {
+                                if (rawDirection === 90) {
                                     material = mapEntities.MapLayer.MATERIAL.WOOD_VERTICAL;
                                 }
 
@@ -124,15 +161,19 @@ class DreameMapParser {
                                 material = mapEntities.MapLayer.MATERIAL.CARPET;
                                 break;
                             default:
-                                Logger.warn("Unhandled segment material", additionalData.seg_inf[segmentId].material);
+                                Logger.warn("Unhandled segment material", rawMaterial);
                         }
 
-                        segmentMaterials[segmentId] = material;
+                        segmentMaterials[segmentId] = {
+                            material: material,
+                            rawMaterial: rawMaterial,
+                            rawDirection: rawDirection
+                        };
                     }
                 });
             }
 
-            layers.push(...DreameMapParser.PARSE_IMAGE(parsedHeader, activeSegmentIds, segmentNames, segmentMaterials, imageData, mapType));
+            layers.push(...DreameMapParser.PARSE_IMAGE(parsedHeader, activeSegmentIds, segmentNames, segmentCleanOrder, segmentCleanSets, hiddenSegmentIds, segmentMaterials, imageData, mapType));
 
             /**
              * Contains saved map data such as virtual restrictions as well as segments
@@ -183,6 +224,10 @@ class DreameMapParser {
                                 l.metaData.active = true;
                             }
 
+                            if (segmentCleanSets[l.metaData.segmentId]) {
+                                DreameMapParser.APPLY_DREAME_CLEAN_SET_METADATA(l.metaData, segmentCleanSets[l.metaData.segmentId]);
+                            }
+
                             if (layers.findIndex(eL => {
                                 return eL.metaData.segmentId === l.metaData.segmentId;
                             }) === -1) {
@@ -193,10 +238,27 @@ class DreameMapParser {
                                         return eL.metaData.segmentId === l.metaData.segmentId;
                                     }).metaData.name = l.metaData.name;
                                 }
-                                if (l.metaData.material) {
+                                if (l.metaData.cleanOrder) {
                                     layers.find(eL => {
                                         return eL.metaData.segmentId === l.metaData.segmentId;
-                                    }).metaData.material = l.metaData.material;
+                                    }).metaData.cleanOrder = l.metaData.cleanOrder;
+                                }
+                                if (l.metaData.dreameCleanSet) {
+                                    DreameMapParser.APPLY_DREAME_CLEAN_SET_METADATA(
+                                        layers.find(eL => {
+                                            return eL.metaData.segmentId === l.metaData.segmentId;
+                                        }).metaData,
+                                        l.metaData.dreameCleanSet
+                                    );
+                                }
+                                if (l.metaData.material) {
+                                    const layer = layers.find(eL => {
+                                        return eL.metaData.segmentId === l.metaData.segmentId;
+                                    });
+
+                                    if (layer.metaData.material === undefined) {
+                                        layer.metaData.material = l.metaData.material;
+                                    }
                                 }
                             }
                         } else {
@@ -207,6 +269,10 @@ class DreameMapParser {
                             }
                         }
                     });
+
+                    if (rismResult.metaData?.dreameMapId !== undefined) {
+                        metaData.dreameRismMapId = rismResult.metaData.dreameMapId;
+                    }
 
                     if (rismResult.metaData?.dreamePendingMapChange !== undefined) {
                         metaData.dreamePendingMapChange = rismResult.metaData.dreamePendingMapChange;
@@ -460,6 +526,21 @@ class DreameMapParser {
         });
     }
 
+    static APPLY_DREAME_CLEAN_SET_METADATA(metaData, cleanSet) {
+        metaData.dreameCleanSet = cleanSet;
+        metaData.dreameSuctionLevel = cleanSet[0];
+        metaData.dreameWaterVolume = cleanSet[1];
+        metaData.dreameCleaningTimes = cleanSet[2];
+
+        if (cleanSet[4] !== undefined) {
+            metaData.dreameCleaningMode = cleanSet[4];
+        }
+
+        if (cleanSet[5] !== undefined) {
+            metaData.dreameMoppingSettings = cleanSet[5];
+        }
+    }
+
     static PARSE_HEADER(buf) {
         const parsedHeader = {
             robot_position: {},
@@ -498,7 +579,7 @@ class DreameMapParser {
         return parsedHeader;
     }
 
-    static PARSE_IMAGE(parsedHeader, activeSegmentIds, segmentNames, segmentMaterials, buf, mapType) {
+    static PARSE_IMAGE(parsedHeader, activeSegmentIds, segmentNames, segmentCleanOrder, segmentCleanSets, hiddenSegmentIds, segmentMaterials, buf, mapType) {
         const floorPixels = [];
         const wallPixels = [];
         const segments = {};
@@ -615,8 +696,25 @@ class DreameMapParser {
                 metaData.name = segmentNames[segmentId];
             }
 
+            if (segmentCleanOrder[segmentId]) {
+                metaData.cleanOrder = segmentCleanOrder[segmentId];
+            }
+
+            if (segmentCleanSets[segmentId]) {
+                DreameMapParser.APPLY_DREAME_CLEAN_SET_METADATA(metaData, segmentCleanSets[segmentId]);
+            }
+
+            if (hiddenSegmentIds.length > 0) {
+                metaData.dreameVisibility = !hiddenSegmentIds.includes(segmentId);
+            }
+
             if (segmentMaterials[segmentId]) {
-                metaData.material = segmentMaterials[segmentId];
+                metaData.material = segmentMaterials[segmentId].material;
+                metaData.dreameMaterial = segmentMaterials[segmentId].rawMaterial;
+
+                if (segmentMaterials[segmentId].rawDirection !== undefined) {
+                    metaData.dreameMaterialDirection = segmentMaterials[segmentId].rawDirection;
+                }
             }
 
             layers.push(

@@ -3,7 +3,11 @@
   "metaData": {
     "version": 2,
     "totalLayerArea": 290950,
-    "vendorMapId": 4
+    "vendorMapId": 4,
+    "dreameMapId": 4,
+    "dreameFrameId": 28,
+    "dreameMapSource": "regular",
+    "dreameRismMapId": 0
   },
   "size": {
     "x": 6554,

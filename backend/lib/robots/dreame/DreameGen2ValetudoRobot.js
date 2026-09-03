@@ -389,6 +389,10 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                 piid: MIOT_SERVICES.VACUUM_2.PROPERTIES.ERROR_CODE.PIID
             },
             {
+                siid: MIOT_SERVICES.VACUUM_2.SIID,
+                piid: MIOT_SERVICES.VACUUM_2.PROPERTIES.CUSTOMIZED_CLEANING.PIID
+            },
+            {
                 siid: MIOT_SERVICES.BATTERY.SIID,
                 piid: MIOT_SERVICES.BATTERY.PROPERTIES.LEVEL.PIID
             },

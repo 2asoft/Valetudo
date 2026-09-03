@@ -33,37 +33,20 @@ class DreameMapResetCapability extends MapResetCapability {
      * @returns {Promise<void>}
      */
     async reset() {
-        const res = await this.robot.sendCommand("action",
-            {
-                did: this.robot.deviceId,
-                siid: this.miot_actions.map_edit.siid,
-                aiid: this.miot_actions.map_edit.aiid,
-                in: [
-                    {
-                        piid: this.miot_properties.mapDetails.piid,
-                        value: JSON.stringify({
-                            cm: {}
-                        })
-                    }
-                ]
-            },
+        const resultCode = await this.robot.sendDreameMapEditAction(
+            {cm: {}},
+            this.miot_actions,
+            this.miot_properties,
             {timeout: 5000}
         );
 
-        if (
-            res && res.siid === this.miot_actions.map_edit.siid &&
-            res.aiid === this.miot_actions.map_edit.aiid &&
-            Array.isArray(res.out) && res.out.length === 1 &&
-            res.out[0].piid === this.miot_properties.actionResult.piid
-        ) {
-            switch (res.out[0].value) {
-                case 0:
-                    this.robot.clearValetudoMap();
-                    this.robot.pollMap();
-                    return;
-                default:
-                    throw new RobotFirmwareError("Got error " + res.out[0].value + " while resetting map.");
-            }
+        switch (resultCode) {
+            case 0:
+                this.robot.clearValetudoMap();
+                this.robot.pollMap();
+                return;
+            default:
+                throw new RobotFirmwareError("Got error " + resultCode + " while resetting map.");
         }
 
     }

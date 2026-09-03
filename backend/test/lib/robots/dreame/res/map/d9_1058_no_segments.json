@@ -1,6 +1,9 @@
 {
   "__class": "ValetudoMap",
   "metaData": {
+    "dreameMapId": 2,
+    "dreameFrameId": 169,
+    "dreameMapSource": "regular",
     "version": 2,
     "totalLayerArea": 268725,
     "vendorMapId": 2

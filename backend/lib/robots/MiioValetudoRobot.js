@@ -72,11 +72,15 @@ class MiioValetudoRobot extends ValetudoRobot {
         });
 
         this.fdsUploadSemaphore = Semaphore(2);
+        this.uploadedFDSObjectsByName = new Map();
         this.expressApp = express();
 
         this.fdsMockServer = http.createServer(this.expressApp);
 
-        this.expressApp.put("/api/miio/fds_upload_handler{/:filename}", (req, res) => {
+        this.expressApp.put([
+            "/api/miio/fds_upload_handler",
+            "/api/miio/fds_upload_handler/:filename"
+        ], (req, res) => {
             Logger.debug("FDS upload started with:", {
                 query: req.query,
                 params: req.params
@@ -129,6 +133,8 @@ class MiioValetudoRobot extends ValetudoRobot {
                                 Logger.warn("Failed to store raw file.", e);
                             }
                         }
+
+                        this.storeUploadedFDSData(uploadBuffer, req.query);
 
                         this.handleUploadedFDSData(
                             uploadBuffer,
@@ -405,19 +411,23 @@ class MiioValetudoRobot extends ValetudoRobot {
 
                 if (msg.method === "_sync.gen_tmp_presigned_url") {
                     result[key] = indices.map(i => {
+                        const objectName = process.hrtime().toString().replace(/,/g, "") + "/" + i;
+
                         return {
-                            url: url + "&index=" + i + "&method=" + msg.method,
-                            obj_name: process.hrtime().toString().replace(/,/g, "") + "/" + i,
+                            url: url + "&index=" + i + "&method=" + msg.method + "&objectName=" + encodeURIComponent(objectName),
+                            obj_name: objectName,
                             method: "PUT",
                             expires_time: expires
                         };
                     });
                 } else if (msg.method === "_sync.gen_presigned_url") {
+                    const objectName = process.hrtime().toString().replace(/,/g, "");
+
                     result[key] = {
-                        url: url + "&method=" + msg.method,
+                        url: url + "&method=" + msg.method + "&objectName=" + encodeURIComponent(objectName),
                         ok: true,
                         expires_time: expires,
-                        obj_name: process.hrtime().toString().replace(/,/g, ""),
+                        obj_name: objectName,
                         method: "PUT",
                         pwd: "helloworld"
                     };
@@ -471,6 +481,39 @@ class MiioValetudoRobot extends ValetudoRobot {
      */
     async parseMap(data) {
         throw new NotImplementedError();
+    }
+
+    /**
+     * @protected
+     * @param {Buffer} data
+     * @param {object} query implementation specific query parameters
+     * @returns {void}
+     */
+    storeUploadedFDSData(data, query) {
+        const objectName = typeof query?.objectName === "string" ? query.objectName : undefined;
+
+        if (!objectName) {
+            return;
+        }
+
+        this.uploadedFDSObjectsByName ??= new Map();
+        this.uploadedFDSObjectsByName.delete(objectName);
+        this.uploadedFDSObjectsByName.set(objectName, data);
+
+        while (this.uploadedFDSObjectsByName.size > MiioValetudoRobot.MAX_STORED_FDS_OBJECTS) {
+            const oldestObjectName = this.uploadedFDSObjectsByName.keys().next().value;
+
+            this.uploadedFDSObjectsByName.delete(oldestObjectName);
+        }
+    }
+
+    /**
+     * @public
+     * @param {string} objectName
+     * @returns {Buffer|undefined}
+     */
+    getUploadedFDSData(objectName) {
+        return this.uploadedFDSObjectsByName?.get(objectName);
     }
 
     /**
@@ -542,6 +585,8 @@ class MiioValetudoRobot extends ValetudoRobot {
         return result;
     }
 }
+
+MiioValetudoRobot.MAX_STORED_FDS_OBJECTS = 8;
 
 const DEVICE_CONF_KEY_VALUE_REGEX = /^(?<key>[A-Za-z\d:.]+)=(?<value>[A-Za-z\d:.]+)$/;
 const MAX_UPLOAD_FILESIZE = 4 * 1024 * 1024; // 4 MiB

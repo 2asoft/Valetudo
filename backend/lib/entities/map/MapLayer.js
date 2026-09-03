@@ -26,6 +26,14 @@ class MapLayer extends SerializableEntity {
      * @param {number} [options.metaData.area] in cm²
      * @param {string} [options.metaData.segmentId]
      * @param {string} [options.metaData.name]
+     * @param {number} [options.metaData.cleanOrder]
+     * @param {Array<number>} [options.metaData.dreameCleanSet]
+     * @param {number} [options.metaData.dreameSuctionLevel]
+     * @param {number} [options.metaData.dreameWaterVolume]
+     * @param {number} [options.metaData.dreameCleaningTimes]
+     * @param {number} [options.metaData.dreameCleaningMode]
+     * @param {number} [options.metaData.dreameMoppingSettings]
+     * @param {boolean} [options.metaData.dreameVisibility]
      * @param {boolean} [options.metaData.active]
      * @param {MapLayerMaterial} [options.metaData.material]
      */

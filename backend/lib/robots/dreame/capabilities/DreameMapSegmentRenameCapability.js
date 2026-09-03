@@ -32,44 +32,31 @@ class DreameMapSegmentRenameCapability extends MapSegmentRenameCapability {
     /**
      * @param {import("../../../entities/core/ValetudoMapSegment")} segment
      * @param {string} name
+     * @param {string} [mapId]
      * @returns {Promise<void>}
      */
-    async renameSegment(segment, name) {
-        const res = await this.robot.sendCommand("action",
-            {
-                did: this.robot.deviceId,
-                siid: this.miot_actions.map_edit.siid,
-                aiid: this.miot_actions.map_edit.aiid,
-                in: [
-                    {
-                        piid: this.miot_properties.mapDetails.piid,
-                        value: JSON.stringify({
-                            nsr: {
-                                [segment.id]: {
-                                    type: 0, //custom name?
-                                    name: Buffer.from(name).toString("base64")
-                                }
-                            }
-                        })
-                    }
-                ]
-            },
+    async renameSegment(segment, name, mapId) {
+        const edit = await this.robot.prepareDreameMapEdit({
+            nsr: {
+                [segment.id]: {
+                    type: 0, //custom name?
+                    name: Buffer.from(name).toString("base64")
+                }
+            }
+        }, mapId);
+        const resultCode = await this.robot.sendDreameMapEditAction(
+            edit.payload,
+            this.miot_actions,
+            this.miot_properties,
             {timeout: 5000}
         );
 
-        if (
-            res && res.siid === this.miot_actions.map_edit.siid &&
-            res.aiid === this.miot_actions.map_edit.aiid &&
-            Array.isArray(res.out) && res.out.length === 1 &&
-            res.out[0].piid === this.miot_properties.actionResult.piid
-        ) {
-            switch (res.out[0].value) {
-                case 0:
-                    this.robot.pollMap();
-                    return;
-                default:
-                    throw new RobotFirmwareError("Got error " + res.out[0].value + " while naming segment.");
-            }
+        switch (resultCode) {
+            case 0:
+                this.robot.pollMap();
+                return;
+            default:
+                throw new RobotFirmwareError("Got error " + resultCode + " while naming segment.");
         }
     }
 }

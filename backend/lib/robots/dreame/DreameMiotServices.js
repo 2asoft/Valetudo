@@ -322,6 +322,9 @@ module.exports = {
                 MOP_DOCK_STATUS: {
                     PIID: 25
                 },
+                CUSTOMIZED_CLEANING: {
+                    PIID: 26
+                },
                 KEY_LOCK: {
                     PIID: 27
                 },
@@ -354,6 +357,9 @@ module.exports = {
                 },
                 MOP_DOCK_WATER_USAGE: {
                     PIID: 46
+                },
+                INTELLIGENT_RECOGNITION: {
+                    PIID: 49
                 },
                 MISC_TUNABLES: {
                     PIID: 50

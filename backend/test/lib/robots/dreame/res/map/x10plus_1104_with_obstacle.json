@@ -1,6 +1,10 @@
 {
   "__class": "ValetudoMap",
   "metaData": {
+    "dreameMapId": 7,
+    "dreameFrameId": 351,
+    "dreameMapSource": "regular",
+    "dreameRismMapId": 4,
     "version": 2,
     "totalLayerArea": 384500,
     "vendorMapId": 7
@@ -17,6 +21,17 @@
         "segmentId": "1",
         "active": true,
         "source": "regular",
+        "dreameCleanSet": [
+          1,
+          3,
+          1,
+          0,
+          2
+        ],
+        "dreameSuctionLevel": 1,
+        "dreameWaterVolume": 3,
+        "dreameCleaningTimes": 1,
+        "dreameCleaningMode": 2,
         "area": 37525
       },
       "type": "segment",
@@ -246,6 +261,17 @@
         "segmentId": "2",
         "active": true,
         "source": "regular",
+        "dreameCleanSet": [
+          1,
+          3,
+          1,
+          0,
+          2
+        ],
+        "dreameSuctionLevel": 1,
+        "dreameWaterVolume": 3,
+        "dreameCleaningTimes": 1,
+        "dreameCleaningMode": 2,
         "area": 25250
       },
       "type": "segment",
@@ -493,6 +519,17 @@
         "segmentId": "4",
         "active": false,
         "source": "regular",
+        "dreameCleanSet": [
+          1,
+          3,
+          1,
+          0,
+          2
+        ],
+        "dreameSuctionLevel": 1,
+        "dreameWaterVolume": 3,
+        "dreameCleaningTimes": 1,
+        "dreameCleaningMode": 2,
         "area": 70100
       },
       "type": "segment",
@@ -992,6 +1029,17 @@
         "segmentId": "5",
         "active": true,
         "source": "regular",
+        "dreameCleanSet": [
+          1,
+          3,
+          1,
+          0,
+          2
+        ],
+        "dreameSuctionLevel": 1,
+        "dreameWaterVolume": 3,
+        "dreameCleaningTimes": 1,
+        "dreameCleaningMode": 2,
         "area": 46875
       },
       "type": "segment",
@@ -1260,6 +1308,17 @@
         "segmentId": "6",
         "active": true,
         "source": "regular",
+        "dreameCleanSet": [
+          1,
+          3,
+          1,
+          0,
+          2
+        ],
+        "dreameSuctionLevel": 1,
+        "dreameWaterVolume": 3,
+        "dreameCleaningTimes": 1,
+        "dreameCleaningMode": 2,
         "area": 78225
       },
       "type": "segment",
@@ -1690,6 +1749,17 @@
         "segmentId": "7",
         "active": true,
         "source": "regular",
+        "dreameCleanSet": [
+          1,
+          3,
+          1,
+          0,
+          2
+        ],
+        "dreameSuctionLevel": 1,
+        "dreameWaterVolume": 3,
+        "dreameCleaningTimes": 1,
+        "dreameCleaningMode": 2,
         "area": 90700
       },
       "type": "segment",

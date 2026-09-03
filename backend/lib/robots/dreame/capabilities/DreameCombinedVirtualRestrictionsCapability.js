@@ -39,9 +39,10 @@ class DreameCombinedVirtualRestrictionsCapability extends CombinedVirtualRestric
     /**
      *
      * @param {ValetudoVirtualRestrictions} virtualRestrictions
+     * @param {string} [mapId]
      * @returns {Promise<void>}
      */
-    async setVirtualRestrictions(virtualRestrictions) {
+    async setVirtualRestrictions(virtualRestrictions, mapId) {
         const dreamePayload = {
             rect: [],
             line: [],
@@ -96,37 +97,24 @@ class DreameCombinedVirtualRestrictionsCapability extends CombinedVirtualRestric
             ]);
         });
 
-        const res = await this.robot.sendCommand("action",
-            {
-                did: this.robot.deviceId,
-                siid: this.miot_actions.map_edit.siid,
-                aiid: this.miot_actions.map_edit.aiid,
-                in: [
-                    {
-                        piid: this.miot_properties.mapDetails.piid,
-                        value: JSON.stringify({vw: dreamePayload})
-                    }
-                ]
-            }
+        const edit = await this.robot.prepareDreameMapEdit({vw: dreamePayload}, mapId);
+        const resultCode = await this.robot.sendDreameMapEditAction(
+            edit.payload,
+            this.miot_actions,
+            this.miot_properties,
+            {timeout: 5000}
         );
 
-        if (
-            res && res.siid === this.miot_actions.map_edit.siid &&
-            res.aiid === this.miot_actions.map_edit.aiid &&
-            Array.isArray(res.out) && res.out.length === 1 &&
-            res.out[0].piid === this.miot_properties.actionResult.piid
-        ) {
-            switch (res.out[0].value) {
-                case 0:
-                    this.robot.pollMap();
-                    return;
-                case 10:
-                    throw new RobotFirmwareError("Cannot save temporary virtual restrictions. A persistent map exists.");
-                case 11:
-                    throw new RobotFirmwareError("Cannot save virtual restrictions. No persistent map exists. Let the robot do a full clean before saving restrictions.");
-                default:
-                    throw new RobotFirmwareError("Got error " + res.out[0].value + " while saving virtual restrictions.");
-            }
+        switch (resultCode) {
+            case 0:
+                this.robot.pollMap();
+                return;
+            case 10:
+                throw new RobotFirmwareError("Cannot save temporary virtual restrictions. A persistent map exists.");
+            case 11:
+                throw new RobotFirmwareError("Cannot save virtual restrictions. No persistent map exists. Let the robot do a full clean before saving restrictions.");
+            default:
+                throw new RobotFirmwareError("Got error " + resultCode + " while saving virtual restrictions.");
         }
     }
 }

@@ -1,5 +1,6 @@
 const fs = require("fs");
 const Logger = require("../../Logger");
+const mapEntities = require("../../entities/map");
 
 const LinuxWifiScanCapability = require("../common/linuxCapabilities/LinuxWifiScanCapability");
 const miioCapabilities = require("../common/miioCapabilities");
@@ -45,6 +46,16 @@ class DreameValetudoRobot extends MiioValetudoRobot {
 
         this.operationModes = options.operationModes ?? {};
         this.miotServices = options.miotServices;
+
+        this.dreameMapState = {
+            selectedMapId: undefined,
+            knownMapIds: [],
+            mapInfoById: {},
+            mapPreviewDataById: {},
+            mapPreviewCandidates: []
+        };
+
+        this.loadEmbeddedDreameMapState();
 
         this.registerCapability(new miioCapabilities.MiioWifiConfigurationCapability({
             robot: this,
@@ -96,16 +107,29 @@ class DreameValetudoRobot extends MiioValetudoRobot {
                 Logger.warn("Error while polling map", e);
             }
 
-            return;
+            return false;
         }
 
         if (mapPollResult.code === 0 && Array.isArray(mapPollResult.out)) {
             for (let prop of mapPollResult.out) {
-                if (prop.piid === this.miotServices.MAP.PROPERTIES.MAP_DATA.PIID && prop.value?.length > 15) {
+                const mapDataPiid = this.miotServices.MAP.PROPERTIES.MAP_DATA.PIID;
+                const cloudFileNamePiid = this.miotServices.MAP.PROPERTIES["CLOUD_FILE_NAME"]?.PIID;
+
+                if (prop.piid === mapDataPiid && prop.value?.length > 15) {
                     try {
                         await this.preprocessAndParseMap(prop.value);
                     } catch (e) {
                         Logger.warn("Error while trying to parse map from miio", e);
+                    }
+                } else if (prop.piid === cloudFileNamePiid && typeof prop.value === "string" && prop.value.length > 0) {
+                    const objectData = this.getDreameMapObjectData(prop.value);
+
+                    if (objectData) {
+                        try {
+                            await this.preprocessAndParseMap(objectData);
+                        } catch (e) {
+                            Logger.warn("Error while trying to parse map object from miio", e);
+                        }
                     }
                 }
             }
@@ -132,14 +156,20 @@ class DreameValetudoRobot extends MiioValetudoRobot {
         const parsedMap = await DreameMapParser.PARSE(data);
 
         if (parsedMap instanceof ValetudoMap) {
+            const rotatedMap = this.applyDreameMapRotation(
+                parsedMap,
+                this.getDreameMapRotationForParsedMap(parsedMap)
+            );
+
             if (
-                parsedMap.metaData?.dreamePendingMapChange === true &&
+                rotatedMap.metaData?.dreamePendingMapChange === true &&
                 this.state.map?.metaData?.dreamePendingMapChange !== true
             ) {
                 this.valetudoEventStore.raise(new PendingMapChangeValetudoEvent({}));
             }
 
-            this.state.map = parsedMap;
+            this.state.map = rotatedMap;
+            this.updateDreameMapStateFromParsedMap(rotatedMap);
 
             this.emitMapUpdated();
         }
@@ -161,11 +191,7 @@ class DreameValetudoRobot extends MiioValetudoRobot {
                 data[0] === 0x7b || data[0] === 0x5b // 0x7b = "{" 0x5b = "["
             )
         ) {
-            Logger.trace("Received unhandled multi-map json", {
-                query: query,
-                params: params,
-                data: data.toString()
-            });
+            await this.handleUploadedDreameMapJson(data, query, params);
         } else if (
             Buffer.isBuffer(data) &&
             (
@@ -193,6 +219,541 @@ class DreameValetudoRobot extends MiioValetudoRobot {
         if (!parsedMap) {
             Logger.warn("Failed to parse uploaded map");
         }
+    }
+
+    /**
+     * @private
+     */
+    loadEmbeddedDreameMapState() {
+        if (this.config.get("embedded") !== true) {
+            return;
+        }
+
+        try {
+            const mapConfig = JSON.parse(fs.readFileSync(DreameValetudoRobot.MULTI_MAP_CONFIG_PATH, {encoding: "utf8"}));
+
+            if (mapConfig.EnableMultMap === 1) {
+                this.loadEmbeddedDreameMapBackupInfo();
+                this.loadEmbeddedDreameMapInfo();
+            }
+        } catch (e) {
+            Logger.debug("Unable to read Dreame multimap config", e);
+        }
+    }
+
+    /**
+     * @private
+     */
+    loadEmbeddedDreameMapBackupInfo() {
+        try {
+            const mapBackupInfo = JSON.parse(fs.readFileSync(DreameValetudoRobot.MAP_BACKUP_INFO_PATH, {encoding: "utf8"}));
+
+            if (!Array.isArray(mapBackupInfo)) {
+                return;
+            }
+
+            const knownMapIds = new Set(this.dreameMapState.knownMapIds);
+            const mapInfoById = {...this.dreameMapState.mapInfoById};
+
+            mapBackupInfo.forEach(mapBackupEntry => {
+                if (!Number.isSafeInteger(mapBackupEntry?.id)) {
+                    return;
+                }
+
+                if (!fs.existsSync(`${DreameValetudoRobot.DIVIDE_MAP_PATH}/${mapBackupEntry.id}`)) {
+                    return;
+                }
+
+                knownMapIds.add(mapBackupEntry.id);
+
+                mapInfoById[mapBackupEntry.id] = {
+                    ...mapInfoById[mapBackupEntry.id],
+                    name: mapInfoById[mapBackupEntry.id]?.name
+                };
+            });
+
+            this.dreameMapState.knownMapIds = Array.from(knownMapIds).sort((a, b) => a - b);
+            this.dreameMapState.mapInfoById = mapInfoById;
+        } catch (e) {
+            Logger.debug("Unable to read Dreame map backup info", e);
+        }
+    }
+
+    /**
+     * @private
+     */
+    loadEmbeddedDreameMapInfo() {
+        try {
+            const mapInfo = JSON.parse(fs.readFileSync(DreameValetudoRobot.MAP_INFO_PATH, {encoding: "utf8"}));
+
+            if (Number.isSafeInteger(mapInfo?.curr_id)) {
+                this.dreameMapState.selectedMapId = mapInfo.curr_id;
+            }
+
+            if (Array.isArray(mapInfo?.mapstr)) {
+                this.dreameMapState.mapPreviewCandidates = mapInfo.mapstr.filter(mapListEntry => {
+                    return typeof mapListEntry?.map === "string";
+                }).map(mapListEntry => {
+                    return {
+                        name: mapListEntry.name,
+                        rotation: DreameValetudoRobot.PARSE_DREAME_MAP_ROTATION(mapListEntry?.angle),
+                        map: mapListEntry.map
+                    };
+                });
+            }
+        } catch (e) {
+            Logger.debug("Unable to read Dreame map info", e);
+        }
+    }
+
+    /**
+     * @public
+     * @param {number} mapId
+     * @returns {Promise<ValetudoMap>}
+     */
+    async getDreameSavedMapPreview(mapId) {
+        this.dreameMapState.mapPreviewDataById ??= {};
+        await this.populateDreameSavedMapPreviewCacheFromCandidates();
+
+        const previewData = this.dreameMapState.mapPreviewDataById[mapId];
+
+        if (
+            !previewData?.map &&
+            mapId === this.getCurrentDreameSavedMapId() &&
+            this.state.map instanceof ValetudoMap &&
+            this.state.map.metaData?.defaultMap !== true
+        ) {
+            return this.state.map;
+        }
+
+        if (!previewData?.map) {
+            throw new Error(`No preview available for map '${mapId}'.`);
+        }
+
+        const parsedMap = await DreameMapParser.PARSE(await DreameMapParser.PREPROCESS(previewData.map));
+
+        if (!(parsedMap instanceof ValetudoMap)) {
+            throw new Error(`No preview available for map '${mapId}'.`);
+        }
+
+        return this.applyDreameMapRotation(
+            parsedMap,
+            this.dreameMapState.mapInfoById[mapId]?.rotation ?? previewData.rotation ?? 0
+        );
+    }
+
+    /**
+     * @public
+     * @param {number} mapId
+     * @returns {Promise<ValetudoMap>}
+     */
+    async getDreameSavedMapForEdit(mapId) {
+        if (
+            mapId === this.getCurrentDreameSavedMapId() &&
+            this.state.map instanceof ValetudoMap &&
+            this.state.map.metaData?.defaultMap !== true
+        ) {
+            return this.state.map;
+        }
+
+        throw new Error(`No full editable saved map available for map '${mapId}'.`);
+    }
+
+    /**
+     * Resolve an optional public map id without allowing saved-map display data to authorize an edit.
+     * Calls without a map id preserve the legacy current-map behavior.
+     *
+     * @public
+     * @param {object} payload
+     * @param {string|undefined} mapId
+     * @returns {Promise<{map: ValetudoMap, payload: object}>}
+     */
+    async prepareDreameMapEdit(payload, mapId) {
+        if (mapId === undefined) {
+            return {
+                map: this.state.map,
+                payload: payload
+            };
+        }
+
+        if (!/^(0|[1-9]\d*)$/.test(mapId)) {
+            throw new Error(`Unknown map '${mapId}'.`);
+        }
+
+        const parsedMapId = Number(mapId);
+
+        if (!Number.isSafeInteger(parsedMapId)) {
+            throw new Error(`Unknown map '${mapId}'.`);
+        }
+
+        return {
+            map: await this.getDreameSavedMapForEdit(parsedMapId),
+            payload: {
+                ...payload,
+                mapid: parsedMapId
+            }
+        };
+    }
+
+    /**
+     * @private
+     * @param {string} objectName
+     * @returns {Buffer|undefined}
+     */
+    getDreameMapObjectData(objectName) {
+        if (typeof this.getUploadedFDSData !== "function") {
+            return undefined;
+        }
+
+        const data = this.getUploadedFDSData(objectName);
+
+        if (Buffer.isBuffer(data)) {
+            return data;
+        }
+
+        if (typeof data === "string") {
+            return Buffer.from(data);
+        }
+
+        return undefined;
+    }
+
+    /**
+     * @private
+     * @returns {Promise<void>}
+     */
+    async populateDreameSavedMapPreviewCacheFromCandidates() {
+        if (!Array.isArray(this.dreameMapState.mapPreviewCandidates) || this.dreameMapState.mapPreviewCandidates.length === 0) {
+            return;
+        }
+
+        this.dreameMapState.mapPreviewDataById ??= {};
+        const candidates = this.dreameMapState.mapPreviewCandidates;
+        this.dreameMapState.mapPreviewCandidates = [];
+
+        for (const candidate of candidates) {
+            try {
+                const decodedMap = await DreameMapParser.PARSE(await DreameMapParser.PREPROCESS(candidate.map));
+                const savedMapId = this.getDreameSavedMapIdForPreview(decodedMap);
+
+                if (!Number.isSafeInteger(savedMapId) || !this.dreameMapState.knownMapIds.includes(savedMapId)) {
+                    continue;
+                }
+
+                this.dreameMapState.mapPreviewDataById[savedMapId] = {
+                    map: candidate.map,
+                    rotation: candidate.rotation
+                };
+
+                this.dreameMapState.mapInfoById[savedMapId] = {
+                    ...this.dreameMapState.mapInfoById[savedMapId],
+                    name: this.dreameMapState.mapInfoById[savedMapId]?.name ?? candidate.name,
+                    rotation: candidate.rotation ?? this.dreameMapState.mapInfoById[savedMapId]?.rotation
+                };
+            } catch (e) {
+                Logger.debug("Unable to parse Dreame saved map preview candidate", e);
+            }
+        }
+    }
+
+    /**
+     * @private
+     * @param {ValetudoMap} parsedMap
+     * @returns {number|undefined}
+     */
+    getDreameSavedMapIdForParsedMap(parsedMap) {
+        const rismMapId = parsedMap?.metaData?.dreameRismMapId;
+
+        return Number.isSafeInteger(rismMapId) ? rismMapId : undefined;
+    }
+
+    /**
+     * Resolve display-only saved-map previews. Firmware backup maps use the saved-map id as
+     * their raw map id, while complete current maps carry it as a RISM map id.
+     *
+     * @private
+     * @param {ValetudoMap} parsedMap
+     * @returns {number|undefined}
+     */
+    getDreameSavedMapIdForPreview(parsedMap) {
+        const rismMapId = parsedMap?.metaData?.dreameRismMapId;
+
+        if (Number.isSafeInteger(rismMapId)) {
+            return rismMapId;
+        }
+
+        const rawMapId = parsedMap?.metaData?.dreameMapId;
+
+        return Number.isSafeInteger(rawMapId) ? rawMapId : undefined;
+    }
+
+    /**
+     * @private
+     * @param {ValetudoMap} parsedMap
+     */
+    updateDreameMapStateFromParsedMap(parsedMap) {
+        const currentMapId = this.getDreameSavedMapIdForParsedMap(parsedMap);
+
+        if (
+            Number.isSafeInteger(parsedMap.metaData?.dreameRismMapId) &&
+            Number.isSafeInteger(currentMapId) &&
+            !this.dreameMapState.knownMapIds.includes(currentMapId)
+        ) {
+            this.dreameMapState.knownMapIds.push(currentMapId);
+            this.dreameMapState.knownMapIds.sort((a, b) => a - b);
+        }
+    }
+
+    /**
+     * @returns {number|undefined}
+     */
+    getCurrentDreameSavedMapId() {
+        if (this.state.map?.metaData?.defaultMap === true) {
+            return undefined;
+        }
+
+        return this.getDreameSavedMapIdForParsedMap(this.state.map);
+    }
+
+    /**
+     * @param {number|undefined} mapId
+     * @returns {string|undefined}
+     */
+    getDreameSavedMapName(mapId) {
+        if (!Number.isSafeInteger(mapId) || !this.dreameMapState.knownMapIds.includes(mapId)) {
+            return undefined;
+        }
+
+        const name = this.dreameMapState.mapInfoById[mapId]?.name;
+
+        return typeof name === "string" && name.trim().length > 0 ? name.trim() : undefined;
+    }
+
+    /**
+     * @private
+     * @param {ValetudoMap} parsedMap
+     * @returns {number}
+     */
+    getDreameMapRotationForParsedMap(parsedMap) {
+        const currentMapId = this.getDreameSavedMapIdForParsedMap(parsedMap);
+
+        return Number.isSafeInteger(currentMapId) ? this.dreameMapState.mapInfoById[currentMapId]?.rotation ?? 0 : 0;
+    }
+
+    /**
+     * @public
+     * @param {ValetudoMap} map
+     * @param {number} targetRotation
+     * @returns {ValetudoMap}
+     */
+    applyDreameMapRotation(map, targetRotation) {
+        const rotation = DreameValetudoRobot.PARSE_DREAME_MAP_ROTATION(targetRotation) ?? 0;
+        const appliedRotation = DreameValetudoRobot.PARSE_DREAME_MAP_ROTATION(map.metaData?.dreameAppliedRotation) ?? 0;
+        const delta = (rotation - appliedRotation + 360) % 360;
+
+        if (delta === 0) {
+            map.metaData.dreameAppliedRotation = rotation;
+            return map;
+        }
+
+        const pixelBounds = DreameValetudoRobot.GET_LAYER_PIXEL_BOUNDS(map.layers);
+        const cmBounds = {
+            x: {
+                min: pixelBounds.x.min * map.pixelSize,
+                max: pixelBounds.x.max * map.pixelSize
+            },
+            y: {
+                min: pixelBounds.y.min * map.pixelSize,
+                max: pixelBounds.y.max * map.pixelSize
+            }
+        };
+        const rotatePixelPoint = (x, y) => {
+            return DreameValetudoRobot.ROTATE_POINT_AROUND_BOUNDS(x, y, pixelBounds, delta);
+        };
+        const rotateCMPoint = (x, y) => {
+            return DreameValetudoRobot.ROTATE_POINT_AROUND_BOUNDS(x, y, cmBounds, delta);
+        };
+
+        return new mapEntities.ValetudoMap({
+            metaData: {
+                ...map.metaData,
+                dreameAppliedRotation: rotation
+            },
+            size: map.size,
+            pixelSize: map.pixelSize,
+            layers: map.layers.map(layer => {
+                const rotatedPixels = DreameValetudoRobot.EXPAND_COMPRESSED_PIXELS(layer.compressedPixels).map(pixel => {
+                    return rotatePixelPoint(pixel[0], pixel[1]);
+                });
+
+                return new mapEntities.MapLayer({
+                    type: layer.type,
+                    metaData: {...layer.metaData},
+                    pixels: rotatedPixels.sort(DreameValetudoRobot.COORDINATE_TUPLE_ASC_SORT).flat()
+                });
+            }),
+            entities: map.entities.map(entity => {
+                const rotatedPoints = [];
+
+                for (let i = 0; i < entity.points.length; i += 2) {
+                    const p = rotateCMPoint(entity.points[i], entity.points[i + 1]);
+
+                    rotatedPoints.push(p[0], p[1]);
+                }
+
+                const entityOptions = {
+                    type: entity.type,
+                    metaData: {
+                        ...entity.metaData,
+                        angle: entity.metaData?.angle !== undefined ? (entity.metaData.angle + delta) % 360 : undefined
+                    },
+                    points: rotatedPoints
+                };
+
+                if (entity instanceof mapEntities.PointMapEntity) {
+                    return new mapEntities.PointMapEntity(entityOptions);
+                } else if (entity instanceof mapEntities.LineMapEntity) {
+                    return new mapEntities.LineMapEntity(entityOptions);
+                } else if (entity instanceof mapEntities.PolygonMapEntity) {
+                    return new mapEntities.PolygonMapEntity(entityOptions);
+                } else if (entity instanceof mapEntities.PathMapEntity) {
+                    return new mapEntities.PathMapEntity(entityOptions);
+                } else {
+                    throw new Error(`Unsupported map entity type ${entity.type}`);
+                }
+            })
+        });
+    }
+
+    /**
+     * @private
+     * @param {Buffer} data
+     * @param {object} query
+     * @param {object} params
+     * @returns {Promise<void>}
+     */
+    async handleUploadedDreameMapJson(data, query, params) {
+        const rawJson = data.toString();
+        let parsedJson;
+
+        try {
+            parsedJson = JSON.parse(rawJson);
+        } catch (e) {
+            Logger.trace("Received unhandled multi-map json", {
+                query: query,
+                params: params,
+                data: rawJson
+            });
+            return;
+        }
+
+        const mapList = Array.isArray(parsedJson?.mapstr) ? parsedJson.mapstr : undefined;
+
+        if (!mapList) {
+            Logger.trace("Received unhandled multi-map json", {
+                query: query,
+                params: params,
+                data: rawJson
+            });
+            return;
+        }
+
+        this.dreameMapState.mapPreviewDataById ??= {};
+        this.dreameMapState.mapPreviewCandidates = [];
+        const knownMapIds = new Set();
+        const mapInfoById = {...this.dreameMapState.mapInfoById};
+
+        if (Number.isSafeInteger(parsedJson.curr_id)) {
+            this.dreameMapState.selectedMapId = parsedJson.curr_id;
+        }
+
+        for (const mapListEntry of mapList) {
+            if (mapListEntry?.map) {
+                try {
+                    const decodedMap = await DreameMapParser.PARSE(await DreameMapParser.PREPROCESS(mapListEntry.map));
+                    const savedMapId = this.getDreameSavedMapIdForPreview(decodedMap);
+
+                    if (Number.isSafeInteger(savedMapId)) {
+                        knownMapIds.add(savedMapId);
+
+                        const rotation = DreameValetudoRobot.PARSE_DREAME_MAP_ROTATION(mapListEntry.angle);
+
+                        mapInfoById[savedMapId] = {
+                            ...mapInfoById[savedMapId],
+                            name: mapListEntry.name,
+                            rotation: rotation ?? mapInfoById[savedMapId]?.rotation
+                        };
+
+                        this.dreameMapState.mapPreviewDataById[savedMapId] = {
+                            map: mapListEntry.map,
+                            rotation: rotation
+                        };
+
+                    }
+                } catch (e) {
+                    Logger.debug("Unable to parse Dreame saved map from map-list json", e);
+                }
+            }
+        }
+
+        this.dreameMapState.knownMapIds = Array.from(knownMapIds).sort((a, b) => a - b);
+        this.dreameMapState.mapInfoById = Object.fromEntries(
+            Object.entries(mapInfoById).filter(([mapId]) => knownMapIds.has(parseInt(mapId, 10)))
+        );
+        this.dreameMapState.mapPreviewDataById = Object.fromEntries(
+            Object.entries(this.dreameMapState.mapPreviewDataById).filter(([mapId]) => knownMapIds.has(parseInt(mapId, 10)))
+        );
+
+        Logger.debug("Updated Dreame map-list state", {
+            selectedMapId: this.dreameMapState.selectedMapId,
+            knownMapIds: this.dreameMapState.knownMapIds,
+            mapInfoById: this.dreameMapState.mapInfoById
+        });
+    }
+
+    /**
+     * @param {object} payload
+     * @param {object} miotActions
+     * @param {object} miotActions.map_edit
+     * @param {number} miotActions.map_edit.siid
+     * @param {number} miotActions.map_edit.aiid
+     * @param {object} miotProperties
+     * @param {object} miotProperties.mapDetails
+     * @param {number} miotProperties.mapDetails.piid
+     * @param {object} miotProperties.actionResult
+     * @param {number} miotProperties.actionResult.piid
+     * @param {object} [options]
+     * @param {number} [options.timeout]
+     * @returns {Promise<number|undefined>}
+     */
+    async sendDreameMapEditAction(payload, miotActions, miotProperties, options = {}) {
+        Logger.debug("Sending Dreame map edit payload", payload);
+
+        const res = await this.sendCommand("action",
+            {
+                did: this.deviceId,
+                siid: miotActions.map_edit.siid,
+                aiid: miotActions.map_edit.aiid,
+                in: [
+                    {
+                        piid: miotProperties.mapDetails.piid,
+                        value: JSON.stringify(payload)
+                    }
+                ]
+            },
+            {timeout: options.timeout}
+        );
+
+        if (
+            res && res.siid === miotActions.map_edit.siid &&
+            res.aiid === miotActions.map_edit.aiid &&
+            Array.isArray(res.out) && res.out.length === 1 &&
+            res.out[0].piid === miotProperties.actionResult.piid
+        ) {
+            return res.out[0].value;
+        }
+
+        return undefined;
     }
 
     getManufacturer() {
@@ -304,6 +865,72 @@ class DreameValetudoRobot extends MiioValetudoRobot {
 
 DreameValetudoRobot.DEVICE_CONF_PATH = "/data/config/miio/device.conf";
 DreameValetudoRobot.TOKEN_FILE_PATH = "/data/config/miio/device.token";
+DreameValetudoRobot.MULTI_MAP_CONFIG_PATH = "/data/config/ava/mult_map.json";
+DreameValetudoRobot.MAP_BACKUP_INFO_PATH = "/data/config/ava/map_bak_info.json";
+DreameValetudoRobot.MAP_INFO_PATH = "/data/log/map_info.bin";
+DreameValetudoRobot.DIVIDE_MAP_PATH = "/data/DivideMap";
+
+DreameValetudoRobot.PARSE_DREAME_MAP_ROTATION = (rotation) => {
+    const parsedRotation = typeof rotation === "string" ? parseInt(rotation, 10) : rotation;
+
+    return [0, 90, 180, 270].includes(parsedRotation) ? parsedRotation : undefined;
+};
+
+DreameValetudoRobot.ROTATE_POINT_AROUND_BOUNDS = (x, y, bounds, rotation) => {
+    const centerX = (bounds.x.min + bounds.x.max) / 2;
+    const centerY = (bounds.y.min + bounds.y.max) / 2;
+    const dx = x - centerX;
+    const dy = y - centerY;
+
+    switch (rotation) {
+        case 90:
+            return [Math.round(centerX - dy), Math.round(centerY + dx)];
+        case 180:
+            return [Math.round(centerX - dx), Math.round(centerY - dy)];
+        case 270:
+            return [Math.round(centerX + dy), Math.round(centerY - dx)];
+        default:
+            return [x, y];
+    }
+};
+
+DreameValetudoRobot.COORDINATE_TUPLE_ASC_SORT = (a, b) => {
+    if (a[1] !== b[1]) {
+        return a[1] - b[1];
+    }
+
+    return a[0] - b[0];
+};
+
+DreameValetudoRobot.GET_LAYER_PIXEL_BOUNDS = (layers) => {
+    return layers.reduce((bounds, layer) => {
+        return {
+            x: {
+                min: Math.min(bounds.x.min, layer.dimensions.x.min),
+                max: Math.max(bounds.x.max, layer.dimensions.x.max)
+            },
+            y: {
+                min: Math.min(bounds.y.min, layer.dimensions.y.min),
+                max: Math.max(bounds.y.max, layer.dimensions.y.max)
+            }
+        };
+    }, {
+        x: {min: Infinity, max: -Infinity},
+        y: {min: Infinity, max: -Infinity}
+    });
+};
+
+DreameValetudoRobot.EXPAND_COMPRESSED_PIXELS = (compressedPixels) => {
+    const pixels = [];
+
+    for (let i = 0; i < compressedPixels.length; i += 3) {
+        for (let offset = 0; offset < compressedPixels[i + 2]; offset++) {
+            pixels.push([compressedPixels[i] + offset, compressedPixels[i + 1]]);
+        }
+    }
+
+    return pixels;
+};
 
 DreameValetudoRobot.STATUS_MAP = Object.freeze({
     0: {
