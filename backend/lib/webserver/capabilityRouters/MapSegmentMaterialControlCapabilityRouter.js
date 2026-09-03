@@ -9,7 +9,8 @@ class MapSegmentMaterialControlCapabilityRouter extends CapabilityRouter {
                     try {
                         await this.capability.setMaterial(
                             new ValetudoMapSegment({id: req.body.segment_id}),
-                            req.body.material
+                            req.body.material,
+                            req.body.map_id
                         );
 
                         res.sendStatus(200);

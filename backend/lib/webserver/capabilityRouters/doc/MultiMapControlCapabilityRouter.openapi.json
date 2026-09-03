@@ -1,0 +1,143 @@
+{
+  "/api/v2/robot/capabilities/MultiMapControlCapability": {
+    "get": {
+      "tags": [
+        "MultiMapControlCapability"
+      ],
+      "summary": "Get saved maps",
+      "responses": {
+        "200": {
+          "description": "Ok",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "selectedMapId": {
+                    "type": "string"
+                  },
+                  "maps": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "selected": {
+                          "type": "boolean"
+                        },
+                        "current": {
+                          "type": "boolean"
+                        },
+                        "rotation": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "put": {
+      "tags": [
+        "MultiMapControlCapability"
+      ],
+      "summary": "Modify saved maps",
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "select_map",
+                    "rename_map",
+                    "delete_map",
+                    "rotate_map"
+                  ]
+                },
+                "map_id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "rotation": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "$ref": "#/components/responses/200"
+        },
+        "400": {
+          "$ref": "#/components/responses/400"
+        }
+      }
+    }
+  },
+  "/api/v2/robot/capabilities/MultiMapControlCapability/maps/{map_id}/preview": {
+    "get": {
+      "tags": [
+        "MultiMapControlCapability"
+      ],
+      "summary": "Get a saved map preview",
+      "parameters": [
+        {
+          "name": "map_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Ok",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v2/robot/capabilities/MultiMapControlCapability/properties": {
+    "get": {
+      "tags": [
+        "MultiMapControlCapability"
+      ],
+      "summary": "Get various capability-related properties",
+      "responses": {
+        "200": {
+          "description": "Ok",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

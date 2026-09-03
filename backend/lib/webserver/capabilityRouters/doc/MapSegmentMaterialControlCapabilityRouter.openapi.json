@@ -32,6 +32,10 @@
                     "carpet_low",
                     "carpet_high"
                   ]
+                },
+                "map_id": {
+                  "type": "string",
+                  "description": "Optional current saved-map id"
                 }
               }
             }

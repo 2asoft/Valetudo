@@ -1,0 +1,122 @@
+{
+  "/api/v2/robot/capabilities/SegmentPreferencesCapability": {
+    "get": {
+      "tags": [
+        "SegmentPreferencesCapability"
+      ],
+      "summary": "Get segment preferences",
+      "parameters": [
+        {
+          "name": "map_id",
+          "in": "query",
+          "required": false,
+          "description": "Optional current saved-map id",
+          "schema": {"type": "string"}
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Ok",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "segments": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {"type": "string"},
+                        "name": {"type": "string"},
+                        "cleanOrder": {"type": "number"},
+                        "visibility": {
+                          "type": "string",
+                          "enum": ["visible", "hidden"]
+                        },
+                        "preferences": {
+                          "type": "object",
+                          "properties": {
+                            "suctionLevel": {"type": "number"},
+                            "waterVolume": {"type": "number"},
+                            "cleaningTimes": {"type": "number"},
+                            "cleaningMode": {"type": "number"},
+                            "moppingSettings": {"type": "number"}
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "put": {
+      "tags": [
+        "SegmentPreferencesCapability"
+      ],
+      "summary": "Modify segment preferences",
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "set_segment_order",
+                    "set_segment_preference",
+                    "set_segment_visibility"
+                  ]
+                },
+                "segment_ids": {
+                  "type": "array",
+                  "items": {"type": "string"}
+                },
+                "segment_id": {"type": "string"},
+                "key": {"type": "string"},
+                "value": {"type": "number"},
+                "visibility": {
+                  "type": "string",
+                  "enum": ["visible", "hidden"]
+                },
+                "map_id": {
+                  "type": "string",
+                  "description": "Optional current saved-map id"
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {"$ref": "#/components/responses/200"},
+        "400": {"$ref": "#/components/responses/400"}
+      }
+    }
+  },
+  "/api/v2/robot/capabilities/SegmentPreferencesCapability/properties": {
+    "get": {
+      "tags": [
+        "SegmentPreferencesCapability"
+      ],
+      "summary": "Get various capability-related properties",
+      "responses": {
+        "200": {
+          "description": "Ok",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -22,6 +22,10 @@
                 },
                 "name": {
                   "type": "string"
+                },
+                "map_id": {
+                  "type": "string",
+                  "description": "Optional current saved-map id"
                 }
               }
             }

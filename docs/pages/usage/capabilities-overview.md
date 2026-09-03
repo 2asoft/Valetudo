@@ -122,6 +122,10 @@ This capability enables you to join and split detected segments.
 If you're new to Valetudo, you might be referring to Segments as Rooms. It's the same thing.
 I just didn't like the term room, because they don't necessarily have to actually be rooms.
 
+## MapSegmentMaterialControlCapability
+
+This capability enables you to assign floor materials to map segments when the robot firmware uses them for cleanup behavior.
+
 ## MapSegmentRenameCapability
 
 This capability enables you to assign names to segments. Naming segments makes it easier to
@@ -148,6 +152,11 @@ This capability is used to start the mapping process.
 
 Don't be confused if your robot doesn't have this capability.
 Usually, they will build the map during cleanup without requiring a separate mapping pass.
+
+## MultiMapControlCapability
+
+This capability enables you to list, preview, select, rename, rotate, and delete firmware-managed saved maps.
+The supported actions depend on the robot firmware.
 
 ## MopDockCleanManualTriggerCapability
 
@@ -232,6 +241,14 @@ A quirk is a vendor, robot or firmware-specific tunable that doesn't fit into Va
 
 Think of quirks as some kind of convenience playground testing section.
 Usually, they will be tunables that you change once and then likely never touch again.
+
+## SegmentPreferencesApplyControlCapability
+
+This capability selects whether full cleanups use common settings or the saved map's room-specific settings.
+
+## SegmentPreferencesCapability
+
+This capability manages firmware-backed room order, visibility, and room-specific cleaning settings for the current saved map.
 
 ## SpeakerTestCapability
 

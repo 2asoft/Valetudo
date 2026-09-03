@@ -38,10 +38,15 @@ class MockValetudoRobot extends ValetudoRobot {
         this.registerCapability(new capabilities.MockPersistentMapControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockPendingMapChangeHandlingCapability({robot: this}));
         this.registerCapability(new capabilities.MockMapSegmentationCapability({robot: this}));
+        this.registerCapability(new capabilities.MockMapSegmentEditCapability({robot: this}));
+        this.registerCapability(new capabilities.MockMapSegmentRenameCapability({robot: this}));
+        this.registerCapability(new capabilities.MockCombinedVirtualRestrictionsCapability({robot: this}));
         this.registerCapability(new capabilities.MockZoneCleaningCapability({robot: this}));
         this.registerCapability(new capabilities.MockAutoEmptyDockManualTriggerCapability({robot: this}));
         this.registerCapability(new capabilities.MockAutoEmptyDockAutoEmptyIntervalControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockMappingPassCapability({robot: this}));
+        this.registerCapability(new capabilities.MockMultiMapControlCapability({robot: this}));
+        this.registerCapability(new capabilities.MockSegmentPreferencesCapability({robot: this}));
         this.registerCapability(new capabilities.MockVoicePackManagementCapability({robot: this}));
         this.registerCapability(new capabilities.MockManualControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockCurrentStatisticsCapability({robot: this}));
@@ -152,7 +157,13 @@ class MockValetudoRobot extends ValetudoRobot {
                 y: this.mockMap.size
             },
             pixelSize: this.mockMap.pixelSize,
-            layers: [this.buildFloor(), this.buildWall()],
+            layers: [
+                this.buildFloor(),
+                this.buildSegment("1", "Kitchen", this.mockMap.range.min + 30, this.mockMap.range.min + 30, this.mockMap.range.min + 260, this.mockMap.range.max - 30),
+                this.buildSegment("2", "Hall", this.mockMap.range.min + 290, this.mockMap.range.min + 30, this.mockMap.range.max - 30, this.mockMap.range.min + 260),
+                this.buildSegment("3", "Guest room", this.mockMap.range.min + 290, this.mockMap.range.min + 290, this.mockMap.range.max - 30, this.mockMap.range.max - 30),
+                this.buildWall()
+            ],
             entities: [this.buildCharger(), this.buildRobot()]
         });
         this.emitMapUpdated();
@@ -172,6 +183,34 @@ class MockValetudoRobot extends ValetudoRobot {
         return new MapLayer({
             type: MapLayer.TYPE.FLOOR,
             pixels: pixels
+        });
+    }
+
+    /**
+     * @private
+     * @param {string} id
+     * @param {string} name
+     * @param {number} minX
+     * @param {number} minY
+     * @param {number} maxX
+     * @param {number} maxY
+     */
+    buildSegment(id, name, minX, minY, maxX, maxY) {
+        const pixels = [];
+
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                pixels.push(x, y);
+            }
+        }
+
+        return new MapLayer({
+            type: MapLayer.TYPE.SEGMENT,
+            pixels: pixels,
+            metaData: {
+                segmentId: id,
+                name: name
+            }
         });
     }
 

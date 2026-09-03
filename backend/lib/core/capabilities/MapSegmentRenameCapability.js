@@ -9,8 +9,9 @@ class MapSegmentRenameCapability extends Capability {
     /**
      * @param {import("../../entities/core/ValetudoMapSegment")} segment
      * @param {string} name
+     * @param {string} [mapId]
      */
-    async renameSegment(segment, name) {
+    async renameSegment(segment, name, mapId) {
         throw new NotImplementedError();
     }
 

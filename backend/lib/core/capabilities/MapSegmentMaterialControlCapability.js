@@ -11,8 +11,9 @@ class MapSegmentMaterialControlCapability extends Capability {
     /**
      * @param {import("../../entities/core/ValetudoMapSegment")} segment
      * @param {MapLayerMaterial} material
+     * @param {string} [mapId]
      */
-    async setMaterial(segment, material) {
+    async setMaterial(segment, material, mapId) {
         throw new NotImplementedError();
     }
 

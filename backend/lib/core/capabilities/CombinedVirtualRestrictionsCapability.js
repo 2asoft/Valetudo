@@ -101,9 +101,10 @@ class CombinedVirtualRestrictionsCapability extends Capability {
     /**
      *
      * @param {import("../../entities/core/ValetudoVirtualRestrictions")} virtualRestrictions
+     * @param {string} [mapId]
      * @returns {Promise<void>}
      */
-    async setVirtualRestrictions(virtualRestrictions) {
+    async setVirtualRestrictions(virtualRestrictions, mapId) {
         throw new NotImplementedError();
     }
 

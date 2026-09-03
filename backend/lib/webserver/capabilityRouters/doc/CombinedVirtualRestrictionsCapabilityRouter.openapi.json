@@ -27,7 +27,20 @@
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/ValetudoVirtualRestrictions"
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ValetudoVirtualRestrictions"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "map_id": {
+                      "type": "string",
+                      "description": "Optional current saved-map id"
+                    }
+                  }
+                }
+              ]
             },
             "examples": {
               "wall_regular_mop":{

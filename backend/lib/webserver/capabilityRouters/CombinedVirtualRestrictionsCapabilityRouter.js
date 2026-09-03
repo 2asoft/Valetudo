@@ -56,7 +56,7 @@ class CombinedVirtualRestrictionsCapabilityRouter extends CapabilityRouter {
                 });
 
                 try {
-                    await this.capability.setVirtualRestrictions(virtualRestrictions);
+                    await this.capability.setVirtualRestrictions(virtualRestrictions, req.body.map_id);
                     res.sendStatus(200);
                 } catch (e) {
                     this.sendErrorResponse(req, res, e);

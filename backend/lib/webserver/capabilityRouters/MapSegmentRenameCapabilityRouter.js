@@ -9,7 +9,8 @@ class MapSegmentRenameCapabilityRouter extends CapabilityRouter {
                     try {
                         await this.capability.renameSegment(
                             new ValetudoMapSegment({id: req.body.segment_id}),
-                            req.body.name
+                            req.body.name,
+                            req.body.map_id
                         );
 
                         res.sendStatus(200);

@@ -11,6 +11,7 @@ class MapSegmentEditCapabilityRouter extends CapabilityRouter {
                             await this.capability.joinSegments(
                                 new ValetudoMapSegment({id: req.body.segment_a_id}),
                                 new ValetudoMapSegment({id: req.body.segment_b_id}),
+                                req.body.map_id
                             );
 
                             res.sendStatus(200);
@@ -33,7 +34,8 @@ class MapSegmentEditCapabilityRouter extends CapabilityRouter {
                                 {
                                     x: req.body.pB.x,
                                     y: req.body.pB.y,
-                                }
+                                },
+                                req.body.map_id
                             );
 
                             res.sendStatus(200);

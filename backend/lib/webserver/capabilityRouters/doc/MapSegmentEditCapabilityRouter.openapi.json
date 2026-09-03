@@ -25,6 +25,10 @@
                     },
                     "segment_b_id": {
                       "type": "string"
+                    },
+                    "map_id": {
+                      "type": "string",
+                      "description": "Optional current saved-map id"
                     }
                   }
                 },
@@ -46,6 +50,10 @@
                     },
                     "pB": {
                       "$ref": "#/components/schemas/CoordinateDTO"
+                    },
+                    "map_id": {
+                      "type": "string",
+                      "description": "Optional current saved-map id"
                     }
                   }
                 }

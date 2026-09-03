@@ -9,9 +9,10 @@ class MapSegmentEditCapability extends Capability {
     /**
      * @param {import("../../entities/core/ValetudoMapSegment")} segmentA
      * @param {import("../../entities/core/ValetudoMapSegment")} segmentB
+     * @param {string} [mapId]
      * @returns {Promise<void>}
      */
-    async joinSegments(segmentA, segmentB) {
+    async joinSegments(segmentA, segmentB, mapId) {
         throw new NotImplementedError();
     }
 
@@ -23,9 +24,10 @@ class MapSegmentEditCapability extends Capability {
      * @param {object} pB
      * @param {number} pB.x
      * @param {number} pB.y
+     * @param {string} [mapId]
      * @returns {Promise<void>}
      */
-    async splitSegment(segment, pA, pB) {
+    async splitSegment(segment, pA, pB, mapId) {
         throw new NotImplementedError();
     }
 
