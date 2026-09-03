@@ -31,6 +31,7 @@
     "build": "npm run build_armv7 && npm run build_aarch64 && npm run build_armv7_lowmem",
     "build_armv7": "npm run pre_build && cross-env PKG_CACHE_PATH=../build_dependencies/pkg pkg --targets node22-linuxstatic-armv7 --compress Brotli --no-bytecode --public-packages \"*\" --options \"expose-gc,max-heap-size=42\" . --output ../build/armv7/valetudo",
     "build_aarch64": "npm run pre_build && cross-env PKG_CACHE_PATH=../build_dependencies/pkg pkg --targets node22-linuxstatic-arm64 --compress Brotli --no-bytecode --public-packages \"*\" --options \"expose-gc,max-heap-size=64\" . --output ../build/aarch64/valetudo",
+    "build_aarch64_fast": "npm run pre_build && cross-env PKG_CACHE_PATH=../build_dependencies/pkg pkg --targets node22-linuxstatic-arm64 --compress GZip --no-bytecode --public-packages \"*\" --options \"expose-gc,max-heap-size=64\" . --output ../build/aarch64/valetudo",
     "build_armv7_lowmem": "npm run pre_build && cross-env PKG_CACHE_PATH=../build_dependencies/pkg pkg --targets node22-linuxstatic-armv7 --compress Brotli --no-bytecode --public-packages \"*\" --options \"expose-gc,max-heap-size=34,optimize-for-size,lite-mode,no-regexp-tier-up\" . --output ../build/armv7/valetudo-lowmem"
   },
   "author": "",
