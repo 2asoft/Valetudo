@@ -31,6 +31,7 @@ interface VirtualRestrictionActionsProperties {
     virtualWalls: Array<VirtualWallClientStructure>,
     noGoAreas: Array<NoGoAreaClientStructure>,
     noMopAreas: Array<NoMopAreaClientStructure>,
+    targetMapId?: string,
 
     convertPixelCoordinatesToCMSpace(coordinates: PointCoordinates) : PointCoordinates
 
@@ -50,6 +51,7 @@ const VirtualRestrictionActions = (
         virtualWalls,
         noGoAreas,
         noMopAreas,
+        targetMapId,
 
         convertPixelCoordinatesToCMSpace,
 
@@ -130,9 +132,10 @@ const VirtualRestrictionActions = (
                     }
                 };
             }),
-            restrictedZones: restrictedZones
+            restrictedZones: restrictedZones,
+            map_id: targetMapId
         });
-    }, [canEdit, saveRestrictions, virtualWalls, noGoAreas, noMopAreas, convertPixelCoordinatesToCMSpace]);
+    }, [canEdit, saveRestrictions, virtualWalls, noGoAreas, noMopAreas, targetMapId, convertPixelCoordinatesToCMSpace]);
 
     if (combinedVirtualRestrictionsPropertiesLoadError) {
         return (

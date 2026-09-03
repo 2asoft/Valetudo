@@ -211,6 +211,7 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
     componentWillUnmount(): void {
         window.removeEventListener("resize", this.resizeListener);
         document.removeEventListener("visibilitychange", this.visibilityStateChangeListener);
+        this.mapLayerManager.dispose();
 
         usePendingMapAction.setState({hasPendingMapAction: false});
     }

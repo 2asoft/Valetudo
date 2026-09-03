@@ -14,8 +14,6 @@ const HelpButtonContainer = styled(Box)(({theme}) => {
     };
 });
 
-export type mode = "segments" | "virtual_restrictions";
-
 const ModeSwitchAction: React.FunctionComponent<{ helpDialogOpen: boolean, setHelpDialogOpen: (open: boolean) => void }> = (
     {
         helpDialogOpen,

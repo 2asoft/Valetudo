@@ -188,6 +188,16 @@ export class MapLayerManager {
         this.selectedSegmentIds = selectedSegmentIds;
     }
 
+    dispose(): void {
+        this.mapLayerManagerWorker.terminate();
+        this.mapLayerManagerWorkerAvailable = false;
+
+        if (typeof this.pendingCallback === "function") {
+            this.pendingCallback();
+            this.pendingCallback = undefined;
+        }
+    }
+
     getCanvas(): HTMLCanvasElement {
         return this.canvas;
     }

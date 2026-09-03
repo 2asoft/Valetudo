@@ -164,12 +164,20 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
 
                 Capability.MapSegmentEdit,
                 Capability.MapSegmentRename,
+                Capability.MultiMapControl,
+                Capability.SegmentPreferences,
 
                 Capability.CombinedVirtualRestrictions,
                 Capability.MapAnnotations
             ],
             type: "anyof"
         }
+    },
+    {
+        kind: "MenuSubEntry",
+        route: "/options/map_management/saved_maps",
+        title: "Saved Maps",
+        parentRoute: "/options/map_management"
     },
     {
         kind: "MenuSubEntry",
@@ -336,8 +344,14 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
     });
     const duststreamingEnabled = duststreamingConfiguration?.enabled === true;
 
-    //@ts-ignore
-    const currentMenuEntry = menuTree.find(element => element.route === currentLocation) ?? menuTree[0];
+    const currentMenuEntry = menuTree
+        .filter((element): element is MenuEntry | MenuSubEntry => {
+            return element.kind !== "Subheader" && (
+                element.route === currentLocation ||
+                (element.route !== "/" && currentLocation.startsWith(`${element.route}/`))
+            );
+        })
+        .sort((a, b) => b.route.length - a.route.length)[0] ?? menuTree[0];
 
     const pageTitle = React.useMemo(() => {
         let ret = "";
@@ -602,9 +616,6 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                         </Typography>
                     </>
                 );
-            case "Subheader":
-                //This can never happen
-                return (<></>);
         }
     }, [currentMenuEntry, setDrawerOpen, pageTitle]);
 

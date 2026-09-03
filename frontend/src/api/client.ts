@@ -34,6 +34,7 @@ import {
     MapSegmentMaterialControlProperties,
     MapSegmentMaterialControlRequestParameters,
     MapSegmentRenameRequestParameters,
+    MultiMapState,
     MopDockMopDryingDuration,
     MopDockMopDryingTimeControlProperties,
     MopDockMopDryingTimePayload,
@@ -55,6 +56,7 @@ import {
     RobotInformation,
     RobotProperties,
     Segment,
+    SegmentPreferencesState,
     SetLogLevelRequest,
     SetQuirkValueCommand,
     SimpleToggleState,
@@ -343,7 +345,8 @@ export const sendJoinSegmentsCommand = async (
         {
             action: "join_segments",
             segment_a_id: parameters.segment_a_id,
-            segment_b_id: parameters.segment_b_id
+            segment_b_id: parameters.segment_b_id,
+            map_id: parameters.map_id
         }
     );
 };
@@ -357,7 +360,8 @@ export const sendSplitSegmentCommand = async (
             action: "split_segment",
             segment_id: parameters.segment_id,
             pA: parameters.pA,
-            pB: parameters.pB
+            pB: parameters.pB,
+            map_id: parameters.map_id
         }
     );
 };
@@ -370,7 +374,8 @@ export const sendRenameSegmentCommand = async (
         {
             action: "rename_segment",
             segment_id: parameters.segment_id,
-            name: parameters.name
+            name: parameters.name,
+            map_id: parameters.map_id
         }
     );
 };
@@ -380,7 +385,8 @@ export const sendSetSegmentMaterialCommand = async (parameters: MapSegmentMateri
         .put(`/robot/capabilities/${Capability.MapSegmentMaterialControl}`, {
             action: "set_material",
             segment_id: parameters.segment_id,
-            material: parameters.material
+            material: parameters.material,
+            map_id: parameters.map_id
         })
         .then(({status}) => {
             if (status !== 200) {
@@ -732,6 +738,18 @@ export const sendPersistentMapEnabled = async (enable: boolean): Promise<void> =
     await sendToggleMutation(Capability.PersistentMapControl, enable);
 };
 
+export const fetchSegmentPreferencesApplyControlState = async (): Promise<SimpleToggleState> => {
+    return valetudoAPI
+        .get<SimpleToggleState>(`/robot/capabilities/${Capability.SegmentPreferencesApplyControl}`)
+        .then(({ data }) => {
+            return data;
+        });
+};
+
+export const sendSegmentPreferencesApplyControlEnabled = async (enable: boolean): Promise<void> => {
+    await sendToggleMutation(Capability.SegmentPreferencesApplyControl, enable);
+};
+
 export const sendMapReset = async (): Promise<void> => {
     await valetudoAPI
         .put(`/robot/capabilities/${Capability.MapReset}`, {
@@ -740,6 +758,131 @@ export const sendMapReset = async (): Promise<void> => {
         .then(({ status }) => {
             if (status !== 200) {
                 throw new Error("Could not reset the map");
+            }
+        });
+};
+
+export const fetchMultiMapState = async (): Promise<MultiMapState> => {
+    return valetudoAPI
+        .get<MultiMapState>(`/robot/capabilities/${Capability.MultiMapControl}`)
+        .then(({ data }) => {
+            return data;
+        });
+};
+
+export const fetchMultiMapPreview = async (mapId: string): Promise<RawMapData> => {
+    return valetudoAPI
+        .get<RawMapData>(`/robot/capabilities/${Capability.MultiMapControl}/maps/${mapId}/preview`)
+        .then(({ data }) => {
+            return preprocessMap(data);
+        });
+};
+
+export const sendSelectMap = async (mapId: string): Promise<void> => {
+    await valetudoAPI
+        .put(`/robot/capabilities/${Capability.MultiMapControl}`, {
+            action: "select_map",
+            map_id: mapId
+        })
+        .then(({ status }) => {
+            if (status !== 200) {
+                throw new Error("Could not select the map");
+            }
+        });
+};
+
+export const sendRenameMap = async (mapId: string, name: string): Promise<void> => {
+    await valetudoAPI
+        .put(`/robot/capabilities/${Capability.MultiMapControl}`, {
+            action: "rename_map",
+            map_id: mapId,
+            name: name
+        })
+        .then(({ status }) => {
+            if (status !== 200) {
+                throw new Error("Could not rename the map");
+            }
+        });
+};
+
+export const sendDeleteMap = async (mapId: string): Promise<void> => {
+    await valetudoAPI
+        .put(`/robot/capabilities/${Capability.MultiMapControl}`, {
+            action: "delete_map",
+            map_id: mapId
+        })
+        .then(({ status }) => {
+            if (status !== 200) {
+                throw new Error("Could not delete the map");
+            }
+        });
+};
+
+export const sendRotateMap = async (mapId: string, rotation: number): Promise<void> => {
+    await valetudoAPI
+        .put(`/robot/capabilities/${Capability.MultiMapControl}`, {
+            action: "rotate_map",
+            map_id: mapId,
+            rotation: rotation
+        })
+        .then(({ status }) => {
+            if (status !== 200) {
+                throw new Error("Could not rotate the map");
+            }
+        });
+};
+
+export const fetchSegmentPreferencesState = async (mapId?: string): Promise<SegmentPreferencesState> => {
+    return valetudoAPI
+        .get<SegmentPreferencesState>(`/robot/capabilities/${Capability.SegmentPreferences}`, {
+            params: {map_id: mapId}
+        })
+        .then(({ data }) => {
+            return data;
+        });
+};
+
+export const sendSegmentOrder = async (segmentIds: string[], mapId?: string): Promise<void> => {
+    await valetudoAPI
+        .put(`/robot/capabilities/${Capability.SegmentPreferences}`, {
+            action: "set_segment_order",
+            segment_ids: segmentIds,
+            map_id: mapId
+        })
+        .then(({ status }) => {
+            if (status !== 200) {
+                throw new Error("Could not set segment order");
+            }
+        });
+};
+
+export const sendSegmentPreference = async (segmentId: string, key: string, value: number, mapId?: string): Promise<void> => {
+    await valetudoAPI
+        .put(`/robot/capabilities/${Capability.SegmentPreferences}`, {
+            action: "set_segment_preference",
+            segment_id: segmentId,
+            key: key,
+            value: value,
+            map_id: mapId
+        })
+        .then(({ status }) => {
+            if (status !== 200) {
+                throw new Error("Could not set segment preference");
+            }
+        });
+};
+
+export const sendSegmentVisibility = async (segmentId: string, visibility: "visible" | "hidden", mapId?: string): Promise<void> => {
+    await valetudoAPI
+        .put(`/robot/capabilities/${Capability.SegmentPreferences}`, {
+            action: "set_segment_visibility",
+            segment_id: segmentId,
+            visibility: visibility,
+            map_id: mapId
+        })
+        .then(({ status }) => {
+            if (status !== 200) {
+                throw new Error("Could not set segment visibility");
             }
         });
 };

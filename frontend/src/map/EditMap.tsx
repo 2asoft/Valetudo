@@ -18,7 +18,7 @@ import MapAnnotationActions from "./actions/edit_map_actions/MapAnnotationAction
 import CurtainClientStructure from "./structures/client_structures/CurtainClientStructure";
 import RampClientStructure from "./structures/client_structures/RampClientStructure";
 
-export type mode = "segments" | "virtual_restrictions" | "annotations";
+export type mode = "segments" | "virtual_restrictions" | "combined" | "annotations";
 
 interface EditMapProps extends MapProps {
     supportedCapabilities: {
@@ -33,7 +33,8 @@ interface EditMapProps extends MapProps {
     mode: mode,
     helpText: string,
     robotStatus: StatusState,
-    enqueueSnackbar: ProviderContext["enqueueSnackbar"]
+    enqueueSnackbar: ProviderContext["enqueueSnackbar"],
+    targetMapId?: string
 }
 
 interface EditMapState extends MapState {
@@ -80,7 +81,7 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
             helpDialogOpen: false
         };
 
-        this.updateVirtualRestrictionClientStructures(props.mode !== "virtual_restrictions");
+        this.updateVirtualRestrictionClientStructures(props.mode !== "virtual_restrictions" && props.mode !== "combined");
         this.updateMapAnnotationsClientStructures(props.mode !== "annotations");
     }
 
@@ -99,7 +100,7 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
 
         this.updateStructures(this.props.mode);
 
-        if (this.props.mode === "virtual_restrictions") {
+        if (this.props.mode === "virtual_restrictions" || this.props.mode === "combined") {
             const pathsImage = await PathDrawer.drawPaths( {
                 pathMapEntities: this.props.rawMap.entities.filter(e => {
                     return e.type === RawMapEntityType.Path;
@@ -374,7 +375,7 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
             }
 
             if (
-                this.props.mode === "segments" &&
+                (this.props.mode === "segments" || this.props.mode === "combined") &&
                 this.state.cuttingLine === undefined
             ) {
                 const {x, y} = this.relativeCoordinatesToCanvas(evt.x0, evt.y0);
@@ -434,7 +435,7 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
                             this.props.supportedCapabilities[Capability.MapSegmentEdit] ||
                             this.props.supportedCapabilities[Capability.MapSegmentRename]
                         ) &&
-                        this.props.mode === "segments" &&
+                        (this.props.mode === "segments" || this.props.mode === "combined") &&
 
                         <SegmentActions
                             robotStatus={this.props.robotStatus}
@@ -450,6 +451,7 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
                                 [Capability.MapSegmentRename]: this.props.supportedCapabilities[Capability.MapSegmentRename],
                                 [Capability.MapSegmentMaterialControl]: this.props.supportedCapabilities[Capability.MapSegmentMaterialControl]
                             }}
+                            targetMapId={this.props.targetMapId}
                             onAddCuttingLine={() => {
                                 const currentCenter = this.getCurrentViewportCenterCoordinatesInPixelSpace();
 
@@ -481,13 +483,14 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
                         (
                             this.props.supportedCapabilities[Capability.CombinedVirtualRestrictions]
                         ) &&
-                        this.props.mode === "virtual_restrictions" &&
+                        (this.props.mode === "virtual_restrictions" || this.props.mode === "combined") &&
 
                         <VirtualRestrictionActions
                             robotStatus={this.props.robotStatus}
                             virtualWalls={this.state.virtualWalls}
                             noGoAreas={this.state.noGoAreas}
                             noMopAreas={this.state.noMopAreas}
+                            targetMapId={this.props.targetMapId}
 
                             convertPixelCoordinatesToCMSpace={(coordinates => {
                                 return this.structureManager.convertPixelCoordinatesToCMSpace(coordinates);
