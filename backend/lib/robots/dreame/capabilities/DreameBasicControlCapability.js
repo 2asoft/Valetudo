@@ -31,14 +31,30 @@ class DreameBasicControlCapability extends BasicControlCapability {
         super(options);
 
         this.miot_actions = options.miot_actions;
+        this.cleaningTaskMonitor = undefined;
+    }
+
+    /**
+     * @param {import("../DreameMapChangeCleaningTaskMonitor")} monitor
+     */
+    setCleaningTaskMonitor(monitor) {
+        this.cleaningTaskMonitor = monitor;
     }
 
     async start() {
-        await this.robot.miotHelper.executeAction(this.miot_actions.start.siid, this.miot_actions.start.aiid);
+        if (this.cleaningTaskMonitor) {
+            await this.cleaningTaskMonitor.startOrResumeFullCleanup();
+        } else {
+            await this.executeStartAction();
+        }
     }
 
     async stop() {
-        await this.robot.miotHelper.executeAction(this.miot_actions.stop.siid, this.miot_actions.stop.aiid);
+        if (this.cleaningTaskMonitor) {
+            await this.cleaningTaskMonitor.stop();
+        } else {
+            await this.executeStopAction();
+        }
     }
 
     async pause() {
@@ -46,6 +62,22 @@ class DreameBasicControlCapability extends BasicControlCapability {
     }
 
     async home() {
+        if (this.cleaningTaskMonitor) {
+            await this.cleaningTaskMonitor.home();
+        } else {
+            await this.executeHomeAction();
+        }
+    }
+
+    async executeStartAction() {
+        await this.robot.miotHelper.executeAction(this.miot_actions.start.siid, this.miot_actions.start.aiid);
+    }
+
+    async executeStopAction() {
+        await this.robot.miotHelper.executeAction(this.miot_actions.stop.siid, this.miot_actions.stop.aiid);
+    }
+
+    async executeHomeAction() {
         await this.robot.miotHelper.executeAction(this.miot_actions.home.siid, this.miot_actions.home.aiid);
     }
 }

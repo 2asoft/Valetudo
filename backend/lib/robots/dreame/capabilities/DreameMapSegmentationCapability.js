@@ -38,7 +38,16 @@ class DreameMapSegmentationCapability extends MapSegmentationCapability {
         this.customOrderSupported = options.customOrderSupported;
 
         this.newOrder = !!options.newOrder;
+        this.cleaningTaskMonitor = undefined;
     }
+
+    /**
+     * @param {import("../DreameMapChangeCleaningTaskMonitor")} monitor
+     */
+    setCleaningTaskMonitor(monitor) {
+        this.cleaningTaskMonitor = monitor;
+    }
+
     /**
      *
      * @param {Array<import("../../../entities/core/ValetudoMapSegment")>} segments
@@ -71,20 +80,31 @@ class DreameMapSegmentationCapability extends MapSegmentationCapability {
             ];
         });
 
-        await this.robot.miotHelper.executeAction(
-            this.miot_actions.start.siid,
-            this.miot_actions.start.aiid,
-            [
-                {
-                    piid: this.miot_properties.mode.piid,
-                    value: this.segmentCleaningModeId
-                },
-                {
-                    piid: this.miot_properties.additionalCleanupParameters.piid,
-                    value: JSON.stringify({"selects": mappedSegments})
-                }
-            ]
-        );
+        const start = async () => {
+            await this.robot.miotHelper.executeAction(
+                this.miot_actions.start.siid,
+                this.miot_actions.start.aiid,
+                [
+                    {
+                        piid: this.miot_properties.mode.piid,
+                        value: this.segmentCleaningModeId
+                    },
+                    {
+                        piid: this.miot_properties.additionalCleanupParameters.piid,
+                        value: JSON.stringify({"selects": mappedSegments})
+                    }
+                ]
+            );
+        };
+
+        if (this.cleaningTaskMonitor) {
+            await this.cleaningTaskMonitor.startMapRelativeCleanup({
+                taskType: "segment",
+                start: start
+            });
+        } else {
+            await start();
+        }
     }
 
     /**
