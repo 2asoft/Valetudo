@@ -34,6 +34,14 @@ class DreameZoneCleaningCapability extends ZoneCleaningCapability {
 
         this.zoneCleaningModeId = options.zoneCleaningModeId;
         this.maxZoneCount = options.maxZoneCount ?? 1;
+        this.cleaningTaskMonitor = undefined;
+    }
+
+    /**
+     * @param {import("../DreameMapChangeCleaningTaskMonitor")} monitor
+     */
+    setCleaningTaskMonitor(monitor) {
+        this.cleaningTaskMonitor = monitor;
     }
 
     async start(options) {
@@ -68,20 +76,31 @@ class DreameZoneCleaningCapability extends ZoneCleaningCapability {
             ]);
         });
 
-        await this.robot.miotHelper.executeAction(
-            this.miot_actions.start.siid,
-            this.miot_actions.start.aiid,
-            [
-                {
-                    piid: this.miot_properties.mode.piid,
-                    value: this.zoneCleaningModeId
-                },
-                {
-                    piid: this.miot_properties.additionalCleanupParameters.piid,
-                    value: JSON.stringify({"areas": zones})
-                }
-            ]
-        );
+        const start = async () => {
+            await this.robot.miotHelper.executeAction(
+                this.miot_actions.start.siid,
+                this.miot_actions.start.aiid,
+                [
+                    {
+                        piid: this.miot_properties.mode.piid,
+                        value: this.zoneCleaningModeId
+                    },
+                    {
+                        piid: this.miot_properties.additionalCleanupParameters.piid,
+                        value: JSON.stringify({"areas": zones})
+                    }
+                ]
+            );
+        };
+
+        if (this.cleaningTaskMonitor) {
+            await this.cleaningTaskMonitor.startMapRelativeCleanup({
+                taskType: "zone",
+                start: start
+            });
+        } else {
+            await start();
+        }
     }
 
     /**

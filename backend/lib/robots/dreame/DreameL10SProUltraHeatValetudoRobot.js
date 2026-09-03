@@ -1,6 +1,7 @@
 const capabilities = require("./capabilities");
 const DreameGen2ValetudoRobot = require("./DreameGen2ValetudoRobot");
 const DreameGen4ValetudoRobot = require("./DreameGen4ValetudoRobot");
+const DreameMapChangeCleaningTaskMonitor = require("./DreameMapChangeCleaningTaskMonitor");
 const DreameQuirkFactory = require("./DreameQuirkFactory");
 const DreameValetudoRobot = require("./DreameValetudoRobot");
 const entities = require("../../entities");
@@ -192,6 +193,32 @@ class DreameL10SProUltraHeatValetudoRobot extends DreameGen4ValetudoRobot {
             siid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.SIID,
             piid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.PROPERTIES.CUSTOMIZED_CLEANING.PIID
         }));
+
+        const basicControlCapability = this.capabilities[capabilities.DreameBasicControlCapability.TYPE];
+        const mapSegmentationCapability = this.capabilities[capabilities.DreameMapSegmentationCapability.TYPE];
+        const segmentPreferencesApplyControlCapability =
+            this.capabilities[capabilities.DreameSegmentPreferencesApplyControlCapability.TYPE];
+        const zoneCleaningCapability = this.capabilities[capabilities.DreameZoneCleaningCapability.TYPE];
+
+        this.mapChangeCleaningTaskMonitor = new DreameMapChangeCleaningTaskMonitor({
+            robot: this,
+            actions: {
+                start: () => {
+                    return basicControlCapability.executeStartAction();
+                },
+                stop: () => {
+                    return basicControlCapability.executeStopAction();
+                },
+                home: () => {
+                    return basicControlCapability.executeHomeAction();
+                }
+            },
+            segmentPreferencesApplyControl: segmentPreferencesApplyControlCapability
+        });
+
+        basicControlCapability.setCleaningTaskMonitor(this.mapChangeCleaningTaskMonitor);
+        mapSegmentationCapability.setCleaningTaskMonitor(this.mapChangeCleaningTaskMonitor);
+        zoneCleaningCapability.setCleaningTaskMonitor(this.mapChangeCleaningTaskMonitor);
 
         this.registerCapability(new capabilities.DreameSegmentPreferencesCapability({
             robot: this,
