@@ -17,6 +17,11 @@ Others may either optionally allow for fast mapping via a mapping pass or even r
 Please note that all these concepts need firmware support by your robot.
 Not everything might be available on every robot. 
 
+#### Saved maps
+
+Some robots can store multiple maps in firmware. Valetudo can list and preview those maps when the firmware provides them.
+A saved map must be loaded as the robot's current full map before Valetudo can edit it.
+
 #### Segments
 
 A segment is a partition of the map as decided by the robots' firmware.

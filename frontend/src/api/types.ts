@@ -28,6 +28,7 @@ export enum Capability {
     MapSegmentation = "MapSegmentationCapability",
     MapSnapshot = "MapSnapshotCapability",
     MappingPass = "MappingPassCapability",
+    MultiMapControl = "MultiMapControlCapability",
     MopDockMopWashTemperatureControl = "MopDockMopWashTemperatureControlCapability",
     MopDockMopDryingTimeControl = "MopDockMopDryingTimeControlCapability",
     ObstacleAvoidanceControl = "ObstacleAvoidanceControlCapability",
@@ -50,6 +51,8 @@ export enum Capability {
     ZoneCleaning = "ZoneCleaningCapability",
     Quirks = "QuirksCapability",
     ObstacleImages = "ObstacleImagesCapability",
+    SegmentPreferences = "SegmentPreferencesCapability",
+    SegmentPreferencesApplyControl = "SegmentPreferencesApplyControlCapability",
     MapAnnotations = "MapAnnotationsCapability",
     Duststreaming = "DuststreamingCapability",
 }
@@ -183,22 +186,26 @@ export interface MapSegmentationActionRequestParameters {
 export interface MapSegmentEditJoinRequestParameters {
     segment_a_id: string;
     segment_b_id: string;
+    map_id?: string;
 }
 
 export interface MapSegmentEditSplitRequestParameters {
     segment_id: string;
     pA: Point;
     pB: Point;
+    map_id?: string;
 }
 
 export interface MapSegmentRenameRequestParameters {
     segment_id: string;
     name: string;
+    map_id?: string;
 }
 
 export interface MapSegmentMaterialControlRequestParameters {
     segment_id: string;
     material: MapSegmentMaterial;
+    map_id?: string;
 }
 
 export interface MapSegmentMaterialControlProperties {
@@ -441,6 +448,38 @@ export interface SimpleToggleState {
     enabled: boolean;
 }
 
+export interface MultiMapEntry {
+    id: string;
+    name?: string;
+    selected: boolean;
+    current: boolean;
+    rotation?: number;
+}
+
+export interface MultiMapState {
+    selectedMapId?: string;
+    maps: MultiMapEntry[];
+}
+
+export interface SegmentPreferencesEntry {
+    id: string;
+    name?: string;
+    cleanOrder?: number;
+    visibility?: "visible" | "hidden";
+    preferences?: {
+        suctionLevel?: number;
+        waterVolume?: number;
+        cleaningTimes?: number;
+        cleaningMode?: number;
+        moppingSettings?: number;
+    };
+}
+
+export interface SegmentPreferencesState {
+    segments: SegmentPreferencesEntry[];
+}
+
+
 export interface SpeakerVolumeState {
     volume: number;
 }
@@ -545,6 +584,7 @@ export interface ValetudoRestrictedZone {
 }
 
 export interface CombinedVirtualRestrictionsUpdateRequestParameters {
+    map_id?: string,
     virtualWalls: Array<{
         points: {
             pA: Point,

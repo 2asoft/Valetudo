@@ -25,6 +25,10 @@ import {
     fetchManualControlState,
     fetchMap,
     fetchMapSegmentationProperties,
+    fetchMultiMapPreview,
+    fetchMultiMapState,
+    fetchSegmentPreferencesApplyControlState,
+    fetchSegmentPreferencesState,
     fetchMQTTConfiguration,
     fetchMQTTProperties,
     fetchNTPClientConfiguration,
@@ -57,6 +61,7 @@ import {
     sendCleanZonesCommand,
     sendCombinedVirtualRestrictionsUpdate,
     sendConsumableReset,
+    sendDeleteMap,
     sendDoNotDisturbConfiguration,
     sendGoToCommand,
     sendHTTPBasicAuthConfiguration,
@@ -69,7 +74,14 @@ import {
     sendNTPClientConfiguration,
     sendObstacleAvoidanceControlState,
     sendPersistentMapEnabled,
+    sendRenameMap,
     sendRenameSegmentCommand,
+    sendRotateMap,
+    sendSelectMap,
+    sendSegmentOrder,
+    sendSegmentPreference,
+    sendSegmentPreferencesApplyControlEnabled,
+    sendSegmentVisibility,
     sendSpeakerTestCommand,
     sendSpeakerVolume,
     sendSplitSegmentCommand,
@@ -210,6 +222,9 @@ enum QueryKey {
     Segments = "segments",
     MapSegmentationProperties = "map_segmentation_properties",
     PersistentMap = "persistent_map",
+    MultiMap = "multi_map",
+    SegmentPreferences = "segment_preferences",
+    SegmentPreferencesApplyControl = "segment_preferences_apply_control",
     RobotInformation = "robot_information",
     ValetudoInformation = "valetudo_information",
     ValetudoVersion = "valetudo_version",
@@ -681,7 +696,7 @@ export const useConsumableStateQuery = () => {
 
 const useValetudoFetchingMutation = <TData, TVariables>(options: {
     onError: ((error: unknown) => void),
-    queryKey: Array<QueryKey>,
+    queryKey: Array<unknown>,
     mutationFn: MutationFunction<TData, TVariables>
 }) => {
     const queryClient = useQueryClient();
@@ -1046,6 +1061,135 @@ export const usePersistentMapMutation = () => {
             return sendPersistentMapEnabled(enabled).then(fetchPersistentMapState);
         },
         onError: useOnCommandError(Capability.PersistentMapControl)
+    });
+};
+
+export const useSegmentPreferencesApplyControlQuery = (enabled = true) => {
+    return useQuery( {
+        queryKey: [QueryKey.SegmentPreferencesApplyControl],
+        queryFn: fetchSegmentPreferencesApplyControlState,
+        enabled: enabled,
+
+        staleTime: Infinity
+    });
+};
+
+export const useSegmentPreferencesApplyControlMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.SegmentPreferencesApplyControl],
+        mutationFn: (enabled: boolean) => {
+            return sendSegmentPreferencesApplyControlEnabled(enabled).then(fetchSegmentPreferencesApplyControlState);
+        },
+        onError: useOnCommandError(Capability.SegmentPreferencesApplyControl)
+    });
+};
+
+export const useMultiMapQuery = () => {
+    return useQuery( {
+        queryKey: [QueryKey.MultiMap],
+        queryFn: fetchMultiMapState,
+
+        staleTime: 30_000
+    });
+};
+
+export const useMultiMapPreviewQuery = (mapId: string, enabled = true) => {
+    return useQuery({
+        queryKey: [QueryKey.MultiMap, "preview", mapId],
+        queryFn: () => fetchMultiMapPreview(mapId),
+        enabled: enabled,
+
+        staleTime: 30_000
+    });
+};
+
+export const useSelectMapMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.MultiMap],
+        mutationFn: (mapId: string) => {
+            return sendSelectMap(mapId).then(fetchMultiMapState);
+        },
+        onError: useOnCommandError(Capability.MultiMapControl)
+    });
+};
+
+export const useRenameMapMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.MultiMap],
+        mutationFn: (parameters: {mapId: string, name: string}) => {
+            return sendRenameMap(parameters.mapId, parameters.name).then(fetchMultiMapState);
+        },
+        onError: useOnCommandError(Capability.MultiMapControl)
+    });
+};
+
+export const useDeleteMapMutation = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (mapId: string) => {
+            return sendDeleteMap(mapId).then(fetchMultiMapState);
+        },
+        onSuccess: (data, mapId) => {
+            queryClient.setQueryData([QueryKey.MultiMap], data, {updatedAt: Date.now()});
+            queryClient.removeQueries({queryKey: [QueryKey.MultiMap, "preview", mapId]});
+        },
+        onError: useOnCommandError(Capability.MultiMapControl)
+    });
+};
+
+export const useRotateMapMutation = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (parameters: {mapId: string, rotation: number}) => {
+            return sendRotateMap(parameters.mapId, parameters.rotation).then(fetchMultiMapState);
+        },
+        onSuccess: async (data, parameters) => {
+            queryClient.setQueryData([QueryKey.MultiMap], data, {updatedAt: Date.now()});
+            await queryClient.invalidateQueries({queryKey: [QueryKey.MultiMap, "preview", parameters.mapId]});
+        },
+        onError: useOnCommandError(Capability.MultiMapControl)
+    });
+};
+
+export const useSegmentPreferencesQuery = (mapId?: string, enabled = true) => {
+    return useQuery({
+        queryKey: [QueryKey.SegmentPreferences, mapId],
+        queryFn: () => fetchSegmentPreferencesState(mapId),
+        enabled: enabled,
+
+        staleTime: 30_000
+    });
+};
+
+export const useSegmentOrderMutation = (mapId?: string) => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.SegmentPreferences, mapId],
+        mutationFn: (segmentIds: string[]) => {
+            return sendSegmentOrder(segmentIds, mapId).then(() => fetchSegmentPreferencesState(mapId));
+        },
+        onError: useOnCommandError(Capability.SegmentPreferences)
+    });
+};
+
+export const useSegmentPreferenceMutation = (mapId?: string) => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.SegmentPreferences, mapId],
+        mutationFn: (parameters: {segmentId: string, key: string, value: number}) => {
+            return sendSegmentPreference(parameters.segmentId, parameters.key, parameters.value, mapId).then(() => fetchSegmentPreferencesState(mapId));
+        },
+        onError: useOnCommandError(Capability.SegmentPreferences)
+    });
+};
+
+export const useSegmentVisibilityMutation = (mapId?: string) => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.SegmentPreferences, mapId],
+        mutationFn: (parameters: {segmentId: string, visibility: "visible" | "hidden"}) => {
+            return sendSegmentVisibility(parameters.segmentId, parameters.visibility, mapId).then(() => fetchSegmentPreferencesState(mapId));
+        },
+        onError: useOnCommandError(Capability.SegmentPreferences)
     });
 };
 

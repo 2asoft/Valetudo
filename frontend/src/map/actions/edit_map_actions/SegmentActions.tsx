@@ -188,6 +188,7 @@ interface SegmentActionsProperties {
     segmentNames: Record<string, string>;
     segmentMaterials: Record<string, RawMapLayerMaterial>;
     cuttingLine: CuttingLineClientStructure | undefined,
+    targetMapId?: string,
 
     convertPixelCoordinatesToCMSpace(coordinates: PointCoordinates): PointCoordinates
 
@@ -210,6 +211,7 @@ const SegmentActions = (
         segmentNames,
         segmentMaterials,
         cuttingLine,
+        targetMapId,
         convertPixelCoordinatesToCMSpace,
         supportedCapabilities,
         onAddCuttingLine,
@@ -260,9 +262,10 @@ const SegmentActions = (
             pB: convertPixelCoordinatesToCMSpace({
                 x: cuttingLine.x1,
                 y: cuttingLine.y1
-            })
+            }),
+            map_id: targetMapId
         });
-    }, [canEdit, splitSegment, selectedSegmentIds, cuttingLine, convertPixelCoordinatesToCMSpace]);
+    }, [canEdit, splitSegment, selectedSegmentIds, cuttingLine, targetMapId, convertPixelCoordinatesToCMSpace]);
 
     const handleJoinClick = React.useCallback(() => {
         if (!canEdit || selectedSegmentIds.length !== 2) {
@@ -272,8 +275,9 @@ const SegmentActions = (
         joinSegments({
             segment_a_id: selectedSegmentIds[0],
             segment_b_id: selectedSegmentIds[1],
+            map_id: targetMapId
         });
-    }, [canEdit, joinSegments, selectedSegmentIds]);
+    }, [canEdit, joinSegments, selectedSegmentIds, targetMapId]);
 
     const handleRename = React.useCallback((name: string) => {
         if (!canEdit || selectedSegmentIds.length !== 1) {
@@ -282,9 +286,10 @@ const SegmentActions = (
         setRenameDialogOpen(false);
         renameSegment({
             segment_id: selectedSegmentIds[0],
-            name: name
+            name: name,
+            map_id: targetMapId
         });
-    }, [canEdit, renameSegment, selectedSegmentIds]);
+    }, [canEdit, renameSegment, selectedSegmentIds, targetMapId]);
 
     const handleSetMaterial = React.useCallback((material: MapSegmentMaterial) => {
         if (!canEdit || selectedSegmentIds.length !== 1) {
@@ -293,9 +298,10 @@ const SegmentActions = (
         setMaterialDialogOpen(false);
         setSegmentMaterial({
             segment_id: selectedSegmentIds[0],
-            material: material
+            material: material,
+            map_id: targetMapId
         });
-    }, [canEdit, setSegmentMaterial, selectedSegmentIds]);
+    }, [canEdit, setSegmentMaterial, selectedSegmentIds, targetMapId]);
 
 
     return (

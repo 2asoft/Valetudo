@@ -13,8 +13,9 @@ import {
     Save as PersistentMapControlIcon,
     Layers as MappingPassIcon,
     LayersClear as MapResetIcon,
-    Dashboard as SegmentEditIcon,
     Crop as CleanupCoverageIcon,
+    Dashboard as SegmentEditIcon,
+    Map as SavedMapsIcon,
     Download as ValetudoMapDownloadIcon,
     EditNote as MapAnnotationsIcon,
     Videocam as SpectatorIcon,
@@ -168,6 +169,8 @@ const MapManagement = (): React.ReactElement => {
 
         mapSegmentEditCapabilitySupported,
         mapSegmentRenameCapabilitySupported,
+        multiMapControlCapabilitySupported,
+        segmentPreferencesCapabilitySupported,
 
         combinedVirtualRestrictionsCapabilitySupported,
         mapAnnotationsCapabilitySupported,
@@ -180,6 +183,8 @@ const MapManagement = (): React.ReactElement => {
 
         Capability.MapSegmentEdit,
         Capability.MapSegmentRename,
+        Capability.MultiMapControl,
+        Capability.SegmentPreferences,
 
         Capability.CombinedVirtualRestrictions,
         Capability.MapAnnotations,
@@ -220,35 +225,48 @@ const MapManagement = (): React.ReactElement => {
 
             if (
                 mapSegmentEditCapabilitySupported || mapSegmentRenameCapabilitySupported ||
-                combinedVirtualRestrictionsCapabilitySupported
+                combinedVirtualRestrictionsCapabilitySupported || multiMapControlCapabilitySupported ||
+                segmentPreferencesCapabilitySupported
             ) {
                 items.push(<SpacerListMenuItem key={"spacer1"}/>);
             }
         }
 
 
-        if (mapSegmentEditCapabilitySupported || mapSegmentRenameCapabilitySupported) {
+        if (multiMapControlCapabilitySupported) {
             items.push(
                 <LinkListMenuItem
-                    key="segmentManagement"
-                    url="/options/map_management/segments"
-                    primaryLabel="Segment Management"
-                    secondaryLabel="Modify the maps segments"
-                    icon={<SegmentEditIcon/>}
+                    key="savedMaps"
+                    url="/options/map_management/saved_maps"
+                    primaryLabel="Saved Maps"
+                    secondaryLabel="Select and edit firmware-managed saved maps"
+                    icon={<SavedMapsIcon/>}
                 />
             );
-        }
+        } else {
+            if (mapSegmentEditCapabilitySupported || mapSegmentRenameCapabilitySupported) {
+                items.push(
+                    <LinkListMenuItem
+                        key="segmentManagement"
+                        url="/options/map_management/segments"
+                        primaryLabel="Segment Management"
+                        secondaryLabel="Modify the maps segments"
+                        icon={<SegmentEditIcon/>}
+                    />
+                );
+            }
 
-        if (combinedVirtualRestrictionsCapabilitySupported) {
-            items.push(
-                <LinkListMenuItem
-                    key="virtualRestrictionManagement"
-                    url="/options/map_management/virtual_restrictions"
-                    primaryLabel="Virtual Restriction Management"
-                    secondaryLabel="Create, modify and delete various virtual restrictions"
-                    icon={<VirtualRestrictionsIcon/>}
-                />
-            );
+            if (combinedVirtualRestrictionsCapabilitySupported) {
+                items.push(
+                    <LinkListMenuItem
+                        key="virtualRestrictionManagement"
+                        url="/options/map_management/virtual_restrictions"
+                        primaryLabel="Virtual Restriction Management"
+                        secondaryLabel="Create, modify and delete various virtual restrictions"
+                        icon={<VirtualRestrictionsIcon/>}
+                    />
+                );
+            }
         }
 
         if (mapAnnotationsCapabilitySupported) {
@@ -272,7 +290,9 @@ const MapManagement = (): React.ReactElement => {
         combinedVirtualRestrictionsCapabilitySupported,
         mapAnnotationsCapabilitySupported,
         mapSegmentEditCapabilitySupported,
-        mapSegmentRenameCapabilitySupported
+        mapSegmentRenameCapabilitySupported,
+        multiMapControlCapabilitySupported,
+        segmentPreferencesCapabilitySupported
     ]);
 
     const utilityMapItems = React.useMemo(() => {

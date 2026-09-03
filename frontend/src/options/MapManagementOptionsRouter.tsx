@@ -7,6 +7,8 @@ import {Capability, useDuststreamingConfigurationQuery} from "../api";
 import React from "react";
 import RobotCoverageMapPage from "../map/RobotCoverageMapPage";
 import SpectatorMapPage from "../map/SpectatorMapPage";
+import MultiMapManagement from "./map_management/MultiMapManagement";
+import SavedMapEditor from "./map_management/SavedMapEditor";
 
 const OptionsRouter = (): React.ReactElement => {
     const [
@@ -14,6 +16,7 @@ const OptionsRouter = (): React.ReactElement => {
 
         mapSegmentEditCapabilitySupported,
         mapSegmentRenameCapabilitySupported,
+        multiMapControlCapabilitySupported,
 
         mapAnnotationsCapabilitySupported,
 
@@ -23,6 +26,7 @@ const OptionsRouter = (): React.ReactElement => {
 
         Capability.MapSegmentEdit,
         Capability.MapSegmentRename,
+        Capability.MultiMapControl,
 
         Capability.MapAnnotations,
 
@@ -71,6 +75,23 @@ const OptionsRouter = (): React.ReactElement => {
                     }
                 />
             }
+
+            {
+                multiMapControlCapabilitySupported &&
+                <Route
+                    path={"saved_maps"}
+                    element={<MultiMapManagement/>}
+                />
+            }
+
+            {
+                multiMapControlCapabilitySupported &&
+                <Route
+                    path={"saved_maps/:mapId/edit"}
+                    element={<SavedMapEditor/>}
+                />
+            }
+
 
             <Route path={"robot_coverage"} element={<RobotCoverageMapPage/>}/>
 
