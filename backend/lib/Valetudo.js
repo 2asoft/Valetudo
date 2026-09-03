@@ -149,7 +149,7 @@ class Valetudo {
 
             this.gcInterval = setInterval(() => {
                 //@ts-ignore
-                const rss = process.memoryUsage.rss();
+                const rss = process.memoryUsage().rss;
 
                 if (rss > overHeapLimit) {
                     const now = new Date();

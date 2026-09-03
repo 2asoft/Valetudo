@@ -113,7 +113,7 @@ class Tools {
             mem: {
                 total: os.totalmem(),
                 free: Tools.GET_FREE_SYSTEM_MEMORY(),
-                valetudo_current: process.memoryUsage.rss(),
+                valetudo_current: process.memoryUsage().rss,
                 valetudo_max: process.resourceUsage().maxRSS * 1024
             },
             load: {
