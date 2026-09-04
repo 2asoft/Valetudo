@@ -3,6 +3,24 @@
     <p align="center"><h2>Free your vacuum from the cloud</h2></p>
 </div>
 
+## About this fork
+
+> [!IMPORTANT]
+> This is an unofficial Valetudo fork with Dreame saved-map support for the
+> `dreame.vacuum.r2338a` (Dreame L10S Pro Ultra Heat). Upstream Valetudo does not support these changes.
+> Report problems with these changes to this fork, not to upstream Valetudo support channels.
+
+This fork adds firmware-backed saved-map management and editing. It can list, preview, select, rename, rotate, and delete
+saved maps. The current saved map can also be edited using segment tools, virtual restrictions, room order, room visibility,
+and room preferences supplied by the firmware.
+
+On the supported Dreame model, full cleanups restart after localization changes the saved map. Segment and zone cleanups
+instead stop and return to the dock because their room IDs and coordinates are not safe to reuse on another map.
+
+Saved-map previews are display-only. Editing requires the complete current map received from the firmware. This behavior was
+validated on a Dreame L10S Pro Ultra Heat running firmware 1633; other models and firmware versions are not covered by that
+hardware verification.
+
 Valetudo is a cloud replacement for vacuum robots enabling local-only operation. It is not a custom firmware.<br/>
 Here's a diagram illustrating the core operation principle:
 
